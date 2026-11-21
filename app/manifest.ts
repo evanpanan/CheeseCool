@@ -5,7 +5,7 @@ export default function manifest(): MetadataRoute.Manifest {
     id: '/',
     name: 'CheeseCool',
     short_name: 'CheeseCool',
-    description: '你的 AI 智能收藏与芝士网络。',
+    description: '你的 AI 智能收藏与芝士库。',
     start_url: '/',
     display: 'standalone',
     lang: 'zh-CN',

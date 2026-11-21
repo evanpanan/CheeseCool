@@ -8,7 +8,7 @@ import { NetworkExplorer } from './network-explorer';
 import { NetworkHeading } from './network-heading';
 
 export const dynamic = 'force-dynamic';
-export const metadata = { title: '芝士网络' };
+export const metadata = { title: '芝士库' };
 const graphLimit = 500;
 const edgeBatchSize = 50;
 const edgePageSize = 500;
@@ -52,7 +52,7 @@ export default async function NetworkPage() {
           <NetworkExplorer bookmarks={bookmarks} edges={edges}/>
         </> : <section className="empty">
           <span className="empty-icon"><CheeseMark size={34}/></span>
-          <h2>你的芝士网络还没有收藏</h2>
+          <h2>你的芝士库还没有收藏</h2>
           <Link className="primary network-empty-link" href="/">去收藏链接</Link>
         </section>}
     </main>

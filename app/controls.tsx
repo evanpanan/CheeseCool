@@ -11,7 +11,7 @@ export function AddBookmark() {
     if (state.ok) setValue('');
   }, [state]);
 
-  return <form action={action} className="capture-form">
+  return <form action={action} className="capture-form" data-pending={pending}>
     <div className="capture-field">
       <Icon name="link" size={20}/>
       <input id="capture-url" name="url" aria-label="链接或分享文字"
@@ -19,7 +19,7 @@ export function AddBookmark() {
         enterKeyHint="done" placeholder="粘贴链接或分享文字…" required maxLength={8000}
         value={value} readOnly={pending} onChange={event => setValue(event.target.value)}/>
       <button className="primary add-button" type="submit" aria-label="收藏链接" title="收藏链接" disabled={pending}>
-        <Icon name="plus" size={23}/>
+        {pending ? <span className="capture-progress" aria-hidden="true"><i/><i/><i/></span> : <Icon name="plus" size={23}/>}
       </button>
     </div>
     <p className="capture-status" role="status">{pending ? '正在保存…' : state.ok && !value ? '已收藏' : ''}</p>

@@ -9,7 +9,7 @@ export function WorkspaceHeader({ active }: { active: 'library' | 'network' | 's
       <div className="workspace-nav">
         <nav aria-label="主导航">
           <Link href="/" aria-current={active === 'library' ? 'page' : undefined}>收藏</Link>
-          <Link href="/network" aria-current={active === 'network' ? 'page' : undefined}>芝士网络</Link>
+          <Link href="/network" aria-current={active === 'network' ? 'page' : undefined}>芝士库</Link>
           <Link href="/settings" aria-current={active === 'settings' ? 'page' : undefined}>AI 设置</Link>
         </nav>
         <form action={signOut}>

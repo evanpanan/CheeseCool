@@ -7,14 +7,10 @@ export function LibraryShell({ query, children }: { query: string; children: Rea
     <WorkspaceHeader active="library"/>
     <main>
       <section className="hero" aria-labelledby="hero-title">
-        <div className="hero-content">
-          <div className="hero-mark"><CheeseMark size={82}/></div>
-          <h1 id="hero-title" lang="en">Save the <em>cool</em> stuff.</h1>
+        <div className="frame hero-content">
+          <div className="hero-mark"><CheeseMark size={46}/></div>
+          <h1 id="hero-title" lang="en">Save the cool stuff.</h1>
           <p className="hero-slogan">把好东西都存起来。</p>
-          <div className="hero-description">
-            <p lang="en">Your AI-powered second brain.</p>
-            <p>你的 AI 智能收藏与芝士网络。</p>
-          </div>
           <AddBookmark/>
         </div>
       </section>
@@ -35,11 +31,7 @@ export function LibraryShell({ query, children }: { query: string; children: Rea
 }
 
 export function LibraryEmpty({ query, page }: { query: string; page: number }) {
-  return <div className="empty">
-    <span className="empty-icon">
-      {query ? <Icon name="search" size={23}/> : <CheeseMark size={34}/>}
-    </span>
-    <h3>{query ? '没有找到相关收藏' : page > 1 ? '这一页没有收藏' : '等待第一条好东西'}</h3>
-    <p>{query ? '试试其他描述或关键词。' : page > 1 ? '可以返回上一页。' : '把想留住的链接粘贴到上方输入框。'}</p>
-  </div>;
+  return <p className="library-empty">
+    {query ? '没有找到匹配的收藏。' : page > 1 ? '这一页没有收藏。' : '还没有收藏。粘贴一个链接开始。'}
+  </p>;
 }

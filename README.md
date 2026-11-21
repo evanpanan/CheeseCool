@@ -2,7 +2,7 @@
 
 Save the cool stuff. 把好东西都存起来。
 
-Your AI-powered second brain. 你的 AI 智能收藏与芝士网络。
+Your AI-powered second brain. 你的 AI 智能收藏与芝士库。
 
 候选域名为 `cheesecool.ai`，所有权与部署地址待确认。
 
