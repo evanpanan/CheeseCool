@@ -1,3 +1,4 @@
+import { createClient } from '@supabase/supabase-js';
 import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
 
@@ -19,5 +20,16 @@ export async function database() {
         catch { /* The proxy refreshes cookies for server components. */ }
       },
     },
+  });
+}
+
+
+export function serviceDatabase() {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const key = process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!url || !key) return null;
+  return createClient(url, key, {
+    auth: { autoRefreshToken: false, persistSession: false, detectSessionInUrl: false },
+    global: { fetch: (input, init) => fetch(input, { ...init, cache: 'no-store' }) },
   });
 }

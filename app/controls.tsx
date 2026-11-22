@@ -1,20 +1,49 @@
 'use client';
 
-import { useActionState, useEffect, useState } from 'react';
+import { useActionState, useEffect, useRef, useState } from 'react';
 import { retryBookmark, saveBookmark, signIn } from './actions';
 import { Icon } from './icons';
 
 export function AddBookmark() {
+  const form = useRef<HTMLFormElement>(null);
+  const input = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    const composer = form.current;
+    if (!composer) return;
+    const viewport = window.visualViewport;
+    const page = composer.closest<HTMLElement>('.capture-page');
+    const mobile = window.matchMedia('(max-width: 650px), (max-width: 960px) and (pointer: coarse)');
+    const update = () => {
+      const inset = viewport && mobile.matches && viewport.scale === 1
+        ? Math.max(0, window.innerHeight - viewport.height - viewport.offsetTop)
+        : 0;
+      page?.style.setProperty('--keyboard-inset', `${inset}px`);
+    };
+    update();
+    viewport?.addEventListener('resize', update);
+    viewport?.addEventListener('scroll', update);
+    window.addEventListener('resize', update);
+    if (mobile.matches && document.activeElement === document.body) {
+      input.current?.focus({ preventScroll: true });
+    }
+    return () => {
+      viewport?.removeEventListener('resize', update);
+      viewport?.removeEventListener('scroll', update);
+      window.removeEventListener('resize', update);
+    };
+  }, []);
+
   const [value, setValue] = useState('');
   const [state, action, pending] = useActionState(saveBookmark, {});
   useEffect(() => {
     if (state.ok) setValue('');
   }, [state]);
 
-  return <form action={action} className="capture-form" data-pending={pending}>
+  return <form ref={form} action={action} className="capture-form" data-pending={pending}>
     <div className="capture-field">
       <Icon name="link" size={20}/>
-      <input id="capture-url" name="url" aria-label="链接或分享文字"
+      <input ref={input} id="capture-url" autoFocus name="url" aria-label="链接或分享文字"
         autoCapitalize="off" autoComplete="off" autoCorrect="off" spellCheck={false}
         enterKeyHint="done" placeholder="粘贴链接或分享文字…" required maxLength={8000}
         value={value} readOnly={pending} onChange={event => setValue(event.target.value)}/>
@@ -38,12 +67,22 @@ export function Retry({ id }: { id: string }) {
 
 export function LoginForm() {
   const [state, action, pending] = useActionState(signIn, {});
+  const [email, setEmail] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   return <form action={action} className="login-form">
     <label htmlFor="email">邮箱</label>
-    <input id="email" name="email" type="email" autoComplete="username" required placeholder="you@example.com"/>
+    <input id="email" name="email" type="email" autoComplete="username" autoCapitalize="none"
+      enterKeyHint="next" spellCheck={false} required value={email}
+      onChange={event => setEmail(event.target.value)}/>
     <label htmlFor="password">密码</label>
-    <input id="password" name="password" type="password" autoComplete="current-password" required/>
+    <div className="password-field">
+      <input id="password" name="password" type={showPassword ? 'text' : 'password'}
+        autoComplete="current-password" autoCapitalize="none" spellCheck={false} enterKeyHint="go" required/>
+      <button type="button" aria-controls="password" onClick={() => setShowPassword(value => !value)}>
+        {showPassword ? '隐藏' : '显示'}
+      </button>
+    </div>
     {state.error && <p className="error" role="alert">{state.error}</p>}
-    <button className="primary form-submit" disabled={pending}>{pending ? '登录中…' : '登录 CheeseCool'}</button>
+    <button className="primary form-submit" disabled={pending}>{pending ? '登录中…' : '登录'}</button>
   </form>;
 }

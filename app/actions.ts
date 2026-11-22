@@ -6,7 +6,7 @@ import { database } from '@/lib/supabase';
 import { canonical, identify, pastedUrl, webUrl } from '@/lib/urls';
 import { extract } from '@/lib/extract';
 import { embed, understand } from '@/lib/ai';
-import { readAiSettings, resolveAi } from '@/lib/ai-settings';
+import { siteAiConfig } from '@/lib/site-ai';
 
 type State = { error?: string; ok?: boolean };
 type Client = Awaited<ReturnType<typeof database>>;
@@ -15,7 +15,7 @@ async function authenticated() {
   const db = await database();
   const { data: { user } } = await db.auth.getUser();
   if (!user) redirect('/login');
-  return { db, user };
+  return db;
 }
 
 export async function signIn(_state: State, form: FormData): Promise<State> {
@@ -27,13 +27,14 @@ export async function signIn(_state: State, form: FormData): Promise<State> {
   redirect('/');
 }
 
-export async function signOut() {
+export async function signOut(_state: State): Promise<State> {
   const db = await database();
-  await db.auth.signOut();
+  const { error } = await db.auth.signOut({ scope: 'local' });
+  if (error) return { error: '暂时无法退出，请重试。' };
   redirect('/login');
 }
 
-async function processBookmark(db: Client, userId: string, id: string) {
+async function processBookmark(db: Client, id: string) {
   const { data: row, error } = await db.from('bookmarks')
     .select('id,original_url,canonical_url,title,status,content,source_hash,ai_summary,tags')
     .eq('id', id).single();
@@ -55,7 +56,7 @@ async function processBookmark(db: Client, userId: string, id: string) {
         const { error: deleteError } = await db.from('bookmarks').delete()
           .eq('id', id).in('status', ['saved', 'limited']);
         if (deleteError) throw deleteError;
-        return processBookmark(db, userId, existing.id);
+        return processBookmark(db, existing.id);
       }
     }
     if (updateError) throw updateError;
@@ -63,9 +64,7 @@ async function processBookmark(db: Client, userId: string, id: string) {
     source = updated;
   }
   if (!source.content || !source.source_hash) return;
-  const { settings, error: settingsError } = await readAiSettings(db, userId);
-  if (settingsError && !['PGRST205', '42P01'].includes(settingsError.code)) throw settingsError;
-  const { chat, embeddingKey } = resolveAi(settings, userId);
+  const { chat, embeddingKey } = await siteAiConfig();
   let ai = source.ai_summary ? { summary: source.ai_summary, tags: source.tags as string[] } : null;
   if (!ai && chat) {
     ai = await understand(source.title, source.content, chat);
@@ -88,7 +87,7 @@ async function processBookmark(db: Client, userId: string, id: string) {
 }
 
 export async function saveBookmark(_state: State, form: FormData): Promise<State> {
-  const { db, user } = await authenticated();
+  const db = await authenticated();
   let url: URL;
   try { url = pastedUrl(String(form.get('url') ?? '').slice(0, 8000)); }
   catch { return { error: '请粘贴有效的 http 或 https 链接。' }; }
@@ -98,16 +97,16 @@ export async function saveBookmark(_state: State, form: FormData): Promise<State
   }, { onConflict: 'user_id,canonical_url', ignoreDuplicates: true });
   if (error) return { error: '保存失败，请稍后重试。' };
   const { data } = await db.from('bookmarks').select('id').eq('canonical_url', key).maybeSingle();
-  if (data) await processBookmark(db, user.id, data.id).catch(() => undefined);
-  revalidatePath('/');
+  if (data) await processBookmark(db, data.id).catch(() => undefined);
+  revalidatePath('/network');
   return { ok: true };
 }
 
 export async function retryBookmark(_state: State, form: FormData): Promise<State> {
-  const { db, user } = await authenticated();
+  const db = await authenticated();
   try {
-    await processBookmark(db, user.id, String(form.get('id') ?? ''));
-    revalidatePath('/');
+    await processBookmark(db, String(form.get('id') ?? ''));
+    revalidatePath('/network');
     return { ok: true };
   } catch {
     return { error: '处理失败，请稍后重试。' };

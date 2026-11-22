@@ -1,29 +1,36 @@
 # CheeseCool
 
-Save the cool stuff. 把好东西都存起来。
+把好东西都存起来。
 
-Your AI-powered second brain. 你的 AI 智能收藏与芝士库。
+智能收藏与芝士库。
 
 候选域名为 `cheesecool.ai`，所有权与部署地址待确认。
 
-私人链接收藏库。在首页粘贴链接或带链接的分享文字，按回车或点击 **＋** 收藏。链接先写入 Supabase，随后提取公开内容。有 OpenAI 密钥时自动生成中文摘要、标签、向量和相关收藏。登录同一账户即可在 Mac 和 iPhone 查看同一批收藏。
+私人链接收藏库。在「收藏」页粘贴链接或带链接的分享文字，按回车或点击 **＋** 保存。在「芝士库」中查看列表、搜索收藏或切到关系图谱。链接先写入 Supabase，随后提取公开内容。管理员配置站点 AI 后，登录用户即可自动生成摘要和标签。配置 OpenAI 向量后，还支持语义搜索和关联。登录同一账户即可在 Mac 和 iPhone 查看同一批收藏。
 
 ## 本地启动
 
 需要 Node.js 22.13+ 或 24，推荐使用 Node.js 24。
 
-1. 创建 Supabase 项目，在 SQL Editor 依次执行 [001 收藏与索引](supabase/migrations/001_second_brain.sql) 和 [002 AI 设置](supabase/migrations/002_ai_settings.sql)。已运行过 001 的实例只需补跑 002。
+1. 创建 Supabase 项目，在 SQL Editor 依次执行 [001 收藏与索引](supabase/migrations/001_second_brain.sql)、[002 旧版 AI 设置](supabase/migrations/002_ai_settings.sql) 和 [003 站点 AI 设置](supabase/migrations/003_site_ai_settings.sql)。已运行过 002 的实例只需补跑 003。
 2. 在 Supabase **Authentication → Users** 创建并确认邮箱密码用户。在 **Authentication → Providers / Sign In** 关闭新用户注册，只为获准账号手动创建用户。
-3. 将 `.env.example` 复制为 `.env.local`。填入项目 URL 和 Publishable Key。旧项目也可使用 anon key。应用只需公开客户端密钥，数据权限由用户会话和 RLS 控制。
-4. 登录后打开 **AI 设置**，选择 OpenAI、Kimi 或 DeepSeek 生成摘要和标签。可在部署环境配置对应的 API 密钥，也可以先在部署环境设置 `AI_SETTINGS_ENCRYPTION_KEY`，再从网页录入个人密钥。用 `openssl rand -hex 32` 生成加密密钥，在持续使用同一数据库的部署中保留它。该变量和各服务密钥均为服务端变量。
-5. 安装、启动并打开 `http://localhost:3000`。
+3. 将 `.env.example` 复制为 `.env.local`。填入项目 URL 和 Publishable Key。旧项目也可使用 anon key。普通收藏数据权限由用户会话和 RLS 控制。
+4. 安装、启动并打开 `http://localhost:3000`。
 
 ```sh
 npm ci
 npm run dev
 ```
 
-摘要与标签会把标题和部分公开正文提交给所选服务商。语义搜索及语义连线独立使用 OpenAI 的 `text-embedding-3-small`，可使用部署环境的 `OPENAI_API_KEY` 或在设置页填 OpenAI 密钥。只配置 Kimi 或 DeepSeek 时，仍可生成摘要、标签并显示共同标签连线。旧收藏可通过「重试处理」补充摘要或语义索引。
+## 站点 AI 管理
+
+普通用户登录后直接使用站点 AI。配置由管理员统一管理，之前的个人设置停止使用，已有收藏、摘要和索引仍可查看。
+
+1. 在 Supabase **Authentication → Users** 复制你的账号 User UID，将其设为部署变量 `AI_ADMIN_USER_IDS`。多个管理员 ID 用英文逗号分隔。
+2. 在部署环境设置 `SUPABASE_SECRET_KEY`（旧版 Supabase 可用 `SUPABASE_SERVICE_ROLE_KEY`）以及用 `openssl rand -hex 32` 生成的 `AI_SETTINGS_ENCRYPTION_KEY`。服务端密钥和加密密钥均保存在部署环境中，同一数据库持续使用同一个加密密钥。
+3. 登录管理员账号，打开 **站点管理**（`/settings`），选择 OpenAI、Kimi 或 DeepSeek 并保存站点 API Key。保存后立即对所有登录用户生效。只在部署后台统一配置时，也可用 `AI_PROVIDER` 和对应的服务商环境变量。
+
+摘要和标签会使用所选服务商。语义搜索及语义连线独立使用 OpenAI 的 `text-embedding-3-small`，可在后台配置站点 OpenAI 密钥，或设置部署变量 `OPENAI_API_KEY`。只配置 Kimi 或 DeepSeek 时，仍可生成摘要、标签并显示共同标签连线。旧收藏可通过「重试处理」补充摘要或语义索引。
 
 ## 支持范围
 

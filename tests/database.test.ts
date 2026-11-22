@@ -14,6 +14,7 @@ test('production migration isolates accounts, deduplicates links and indexes rel
     await db.exec(`
       create role authenticated;
       create role anon;
+      create role service_role bypassrls;
       create schema auth;
       create table auth.users(id uuid primary key);
       create function auth.uid() returns uuid language sql stable as
@@ -50,11 +51,17 @@ test('production migration isolates accounts, deduplicates links and indexes rel
     const lexical = await db.query<{ id: string }>("select * from public.search_bookmarks('知识库')");
     assert.deepEqual(lexical.rows, [{ id: first }]);
 
-    await db.exec("insert into public.ai_settings(provider, kimi_key) values ('kimi','ciphertext');");
-    assert.deepEqual((await db.query('select provider from public.ai_settings')).rows, [{ provider: 'kimi' }]);
-    await db.exec(`set request.jwt.claim.sub = '${bob}';`);
-    assert.equal((await db.query('select provider, kimi_key from public.ai_settings')).rows.length, 0);
-    await assert.rejects(db.query("insert into public.ai_settings(user_id,provider) values ($1,'deepseek')", [alice]), /row-level security/);
+    await db.exec("insert into public.ai_settings(provider, kimi_key) values ('kimi','legacy-ciphertext');");
+    await db.exec('reset role');
+    await db.exec(await readFile('supabase/migrations/003_site_ai_settings.sql', 'utf8'));
+    await db.exec("set role service_role; insert into public.site_ai_settings(provider, kimi_key) values ('kimi','site-ciphertext');");
+    assert.deepEqual((await db.query('select provider from public.site_ai_settings')).rows, [{ provider: 'kimi' }]);
+    await db.exec('reset role; set role anon;');
+    await assert.rejects(db.query('select * from public.site_ai_settings'), /permission denied/);
+    await db.exec(`reset role; set role authenticated; set request.jwt.claim.sub = '${bob}';`);
+    await assert.rejects(db.query('select * from public.site_ai_settings'), /permission denied/);
+    await assert.rejects(db.query("update public.site_ai_settings set provider = 'deepseek'"), /permission denied/);
+    await assert.rejects(db.query('select * from public.ai_settings'), /permission denied/);
     assert.equal((await db.query('select * from public.bookmarks')).rows.length, 0);
     assert.equal((await db.query('select * from public.bookmark_edges')).rows.length, 0);
     assert.equal((await db.query("select * from public.search_bookmarks('知识库',$1)", [direction])).rows.length, 0);

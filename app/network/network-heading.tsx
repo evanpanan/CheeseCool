@@ -5,7 +5,6 @@ export function NetworkHeading() {
     <div className="atlas-mark"><CheeseMark size={34}/></div>
     <div>
       <h1>芝士库</h1>
-      <p>点开一块奶酪，沿着连线继续探索。</p>
     </div>
   </header>;
 }
