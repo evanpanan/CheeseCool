@@ -29,7 +29,7 @@ export function NetworkExplorer({ bookmarks, edges }: {
   useEffect(() => {
     if (!savedBookmark || savedBookmark === handledSave.current || !graph.nodes.some(node => node.id === savedBookmark.id)) return;
     handledSave.current = savedBookmark;
-    setSelected(savedBookmark.id);
+    setSelected('');
   }, [savedBookmark, graph]);
 
   useEffect(() => setSelected(''), [search]);

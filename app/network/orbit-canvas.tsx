@@ -17,6 +17,7 @@ type Props = {
 export function OrbitCanvas(props: Props) {
   const frame = useRef<HTMLIFrameElement>(null);
   const latest = useRef(props);
+  const locatedSave = useRef('');
   latest.current = props;
   const document = useMemo(() => orbitDocument.replace('__PAYLOAD__',
     'window.__cheesecool=' + JSON.stringify(props.graph).replace(/</g, '\\u003c') + ';'), [props.graph]);
@@ -25,7 +26,8 @@ export function OrbitCanvas(props: Props) {
     const value = latest.current;
     frame.current?.contentWindow?.postMessage({
       type: 'cheesecool:state', mode: value.night ? 'dark' : 'light',
-      query: value.query, paused: value.paused, focus: value.selected, saved: value.saved,
+      query: value.query, paused: value.paused, focus: value.selected,
+      saved: value.saved && `${value.saved.id}:${value.saved.event}` !== locatedSave.current ? value.saved : null,
     }, '*');
   }
 
@@ -33,6 +35,9 @@ export function OrbitCanvas(props: Props) {
     function receive(event: MessageEvent) {
       if (event.source !== frame.current?.contentWindow) return;
       if (event.data?.type === 'cheesecool:ready') synchronize();
+      if (event.data?.type === 'cheesecool:located' && latest.current.saved && event.data.id === latest.current.saved?.id && event.data.event === latest.current.saved.event) {
+        locatedSave.current = `${event.data.id}:${event.data.event}`;
+      }
       if (event.data?.type === 'cheesecool:interact') window.dispatchEvent(new Event('cheesecool:workspace-outside'));
       if (event.data?.type === 'cheesecool:select' && typeof event.data.id === 'string') latest.current.onSelect(event.data.id);
     }
