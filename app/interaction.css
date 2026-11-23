@@ -1,0 +1,66 @@
+/* Completion is tied to the action's real response. */
+.action-glyph { display:inline-grid;place-items:center;width:22px;height:22px; }
+.workspace-composer .capture-field { transition:border-color 180ms,box-shadow 180ms,background-color 180ms; }
+.workspace-composer .capture-field:focus-within { border-color:color-mix(in srgb,var(--accent-ink) 36%,var(--chrome-line));box-shadow:0 0 0 4px color-mix(in srgb,var(--accent) 8%,transparent),var(--chrome-shadow); }
+.workspace-composer .add-button { transition:transform 180ms cubic-bezier(.2,.8,.2,1),background-color 180ms,box-shadow 180ms; }
+.workspace-composer .add-button:enabled:hover { box-shadow:0 2px 9px #15141b12,inset 0 1px 0 #ffffff30;transform:translateY(-1px); }
+.workspace-composer .add-button:enabled:active { transform:translateY(0) scale(.94); }
+.workspace-composer .capture-form[data-state=saved] .action-glyph svg { stroke-dasharray:28;stroke-dashoffset:0; }
+@media(prefers-reduced-motion:no-preference) {
+ .action-glyph { animation:action-glyph-enter 200ms cubic-bezier(.2,.8,.2,1) both; }
+ .capture-form[data-state=saved] .action-glyph svg { animation:action-check-draw 260ms ease-out both; }
+ .capture-form[data-state=error] .capture-field { animation:input-reject 180ms ease-out; }
+ @keyframes action-glyph-enter { from{opacity:0;transform:translateY(3px) scale(.78)}to{opacity:1;transform:none} }
+ @keyframes action-check-draw { from{stroke-dashoffset:28}to{stroke-dashoffset:0} }
+ @keyframes input-reject { 0%,100%{transform:translateX(0)}30%{transform:translateX(-2px)}65%{transform:translateX(2px)} }
+}
+@media(prefers-reduced-motion:reduce) {
+ .workspace-composer .capture-field,.workspace-composer .add-button { transition:none; }
+}
+
+
+
+
+.brand.interactive-brand { position:relative;display:inline-flex;flex:none;gap:0;transform:translate(var(--brand-x,0),var(--brand-y,0)) rotate(var(--brand-tilt,0deg)); }
+.interactive-brand .brand-source { display:inline-flex;align-items:center;gap:9px;white-space:nowrap; }
+.brand.interactive-brand .brand-source>img { display:block;flex:none;width:32px;height:32px;object-fit:contain; }
+.interactive-brand .brand-wordmark { white-space:nowrap; }
+.interactive-brand canvas { position:absolute;pointer-events:none;left:-20px;top:-20px;width:calc(100% + 40px);height:calc(100% + 40px);opacity:0; }
+.interactive-brand[data-ready=true][data-phase=particles] canvas { opacity:1; }
+.interactive-brand[data-ready=true][data-phase=particles] .brand-source { opacity:0; }
+@media(prefers-reduced-motion:no-preference) {
+ .brand.interactive-brand { transition:transform 200ms cubic-bezier(.2,.8,.2,1); }
+ .interactive-brand .brand-source,.interactive-brand canvas { transition:opacity 120ms ease; }
+}
+@media(max-width:650px),(max-width:960px) and (pointer:coarse) {
+ .brand.interactive-brand .brand-source>img { width:26px;height:26px; }
+ .interactive-brand .brand-source { gap:6px; }
+}
+@media(prefers-reduced-motion:reduce) {
+ .brand.interactive-brand { transform:none; }
+ .interactive-brand .brand-source { opacity:1!important; }
+ .interactive-brand canvas { display:none; }
+}
+
+/* Authentication journeys share the brand's spring motion. */
+.auth-heading{margin:0 0 22px;text-align:center}
+.auth-heading h1{font-size:22px;line-height:1.4;letter-spacing:-.8px;font-weight:600;margin:0;animation:auth-title-in .36s cubic-bezier(.16,1,.3,1) both}
+.session-motion{position:fixed;inset:0;z-index:10000;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:20px;background:var(--paper);color:var(--ink);font-size:14px;letter-spacing:.5px;backdrop-filter:blur(12px)}
+.session-motion.is-leaving{animation:session-cover .52s cubic-bezier(.22,1,.36,1) both}
+.session-motion.is-arriving{pointer-events:none;animation:session-reveal .65s cubic-bezier(.22,1,.36,1) both}
+.session-motion-symbol{position:relative;width:76px;height:76px;display:grid;place-items:center}
+.session-motion-symbol>span{font-size:40px;display:block;animation:session-cheese .52s cubic-bezier(.22,1.3,.36,1) both}
+.session-motion-symbol>i{position:absolute;width:5px;height:5px;background:var(--accent);border-radius:2px;animation:session-spark .7s ease-out both;--spark-x:32px;--spark-y:-28px}
+.session-motion-symbol>i:nth-child(3){--spark-x:-30px;--spark-y:-18px;animation-delay:.06s}
+.session-motion-symbol>i:nth-child(4){--spark-x:27px;--spark-y:26px;animation-delay:.1s}
+@keyframes auth-title-in{from{opacity:0;transform:translateY(7px);filter:blur(2px)}to{opacity:1;transform:translateY(0);filter:blur(0)}}
+@keyframes session-cover{from{opacity:0;clip-path:circle(0 at 50% 50%)}to{opacity:1;clip-path:circle(150% at 50% 50%)}}
+@keyframes session-reveal{0%,20%{opacity:1}100%{opacity:0}}
+@keyframes session-cheese{from{opacity:0;transform:translateY(12px) rotate(-16deg) scale(.65)}to{opacity:1;transform:translateY(0) rotate(0) scale(1)}}
+@keyframes session-spark{0%{opacity:0;transform:translate(0,0) scale(0)}55%{opacity:1}100%{opacity:0;transform:translate(var(--spark-x),var(--spark-y)) scale(1)}}
+@media(prefers-reduced-motion:reduce){.auth-heading h1,.auth-notice,.session-motion,.session-motion-symbol>*{animation:none!important}.session-motion.is-arriving{display:none}}
+
+.session-motion.is-arriving.is-confirmed{animation:session-confirmed-reveal 1.8s ease both}
+.session-motion.is-confirmed .session-motion-symbol{width:160px;height:140px}
+.session-motion.is-confirmed .auth-sculpture{width:160px;height:140px;margin:0}
+@keyframes session-confirmed-reveal{0%,65%{opacity:1}100%{opacity:0}}

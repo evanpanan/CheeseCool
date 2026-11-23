@@ -15,10 +15,10 @@ export type NetworkBookmark = {
 
 export type NetworkEdge = { source_id: string; target_id: string; score: number; kind?: 'tag' };
 
-const palette = ['#514dd2', '#098e7d', '#2d74b6', '#aa631b', '#9854ab', '#ab4769', '#527b26'];
+const palette = ['#7761d8', '#168f97', '#3682ce', '#cf8b35', '#b362a7', '#cc6c85', '#6f9c42'];
 const ungrouped = 'untagged';
 
-export function buildNetwork(bookmarks: NetworkBookmark[], edges: NetworkEdge[]) {
+export function buildNetwork(bookmarks: NetworkBookmark[], edges: NetworkEdge[], portrait = false) {
   const ids = new Set(bookmarks.map(bookmark => bookmark.id));
   const links = edges.filter(edge => ids.has(edge.source_id) && ids.has(edge.target_id));
   const tagNames = new Map<string, string>();
@@ -96,13 +96,13 @@ export function buildNetwork(bookmarks: NetworkBookmark[], edges: NetworkEdge[])
       const connections = neighbors.get(bookmark.id) ?? [];
       return {
         ...bookmark, group: key, groupIndex, color, connections, degree: connections.length,
-        x: 0, y: 0, radius: 2.7 + Math.min(9, Math.sqrt(connections.length) * 1.8),
+        x: 0, y: 0, radius: 7 + Math.min(10, Math.sqrt(connections.length) * 2.4),
       };
     }).sort((a, b) => b.degree - a.degree);
     return { key, label: tagNames.get(key) ?? '未分类', color, size: nodes.length, nodes };
   });
   const nodes = positioned.flatMap(group => group.nodes);
-  const bounds = layoutNetwork(nodes, links);
+  const bounds = layoutNetwork(nodes, links, portrait);
   const groupsWithBounds = positioned.map(group => {
     const departures = group.nodes.map(node => node.x);
     const heights = group.nodes.map(node => node.y);

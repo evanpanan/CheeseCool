@@ -2,39 +2,12 @@ import Link from 'next/link';
 import type { database } from '@/lib/supabase';
 import { embed } from '@/lib/ai';
 import { siteAiConfig } from '@/lib/site-ai';
-import { platformNames, type Platform } from '@/lib/urls';
-import { Retry } from '../controls';
-import { Icon } from '../icons';
+import { BookmarkCard, type Bookmark } from './bookmark-card';
+import { EmptyState } from '../empty-state';
+import { CollectionSearch } from '../collection-search';
+import { RefreshCollection } from './refresh-collection';
 
-const columns = 'id,original_url,final_url,title,platform,cover_url,summary,ai_summary,tags,status';
-type Bookmark = {
-  id: string; original_url: string; final_url: string | null; title: string;
-  platform: Platform; cover_url: string | null; summary: string;
-  ai_summary: string | null; tags: string[]; status: string;
-};
-
-function BookmarkCard({ item, related, ai, canIndex }: { item: Bookmark; related: Bookmark[]; ai: boolean; canIndex: boolean }) {
-  return <article id={item.id} className="bookmark">
-    {item.cover_url && <div className="cover" style={{ backgroundImage: `url(${JSON.stringify(item.cover_url)})` }}/>}
-    <div className="bookmark-body">
-      <span className="platform"><Icon name="link" size={14}/> {platformNames[item.platform]}</span>
-      <h3><a href={item.final_url || item.original_url} target="_blank" rel="noopener noreferrer">{item.title}<Icon name="arrow" size={17}/></a></h3>
-      {(item.ai_summary || item.summary) && <p>{item.ai_summary || item.summary}</p>}
-      {!!item.tags.length && <ul aria-label="标签" className="tags">{item.tags.map(tag => <li key={tag}><Link href={'/network?q=' + encodeURIComponent(tag)}>{tag}</Link></li>)}</ul>}
-      {item.status !== 'indexed' && <div className="status-row">
-        <span>{item.status === 'limited' ? '已保存链接，来源内容暂不可读' : item.status === 'extracted' ? (item.ai_summary ? (canIndex ? '待完成语义索引' : '已自动整理') : ai ? '待自动整理' : '已提取内容') : '已保存链接，待提取内容'}</span>
-        {(item.status !== 'extracted' || (item.ai_summary ? canIndex : ai)) && <Retry id={item.id}/>}
-      </div>}
-      {!!related.length && <details>
-        <summary>相关收藏 · {related.length}</summary>
-        <ul>{related.map(other => <li key={other.id}>
-          <a href={other.final_url || other.original_url} target="_blank" rel="noopener noreferrer">{other.title}</a>
-        </li>)}</ul>
-      </details>}
-    </div>
-  </article>;
-}
-
+const columns = 'id,original_url,final_url,title,platform,cover_url,summary,ai_summary,tags,status,created_at';
 export async function BookmarkCollection({ db, params }: {
   db: Awaited<ReturnType<typeof database>>;
   params: { q?: string | string[]; page?: string | string[] };
@@ -76,21 +49,24 @@ export async function BookmarkCollection({ db, params }: {
     : { data: null };
   const all = new Map([...visible, ...((others ?? []) as Bookmark[])].map(item => [item.id, item]));
 
+  const now = Date.now();
+  const refreshUntil = Math.max(0, ...visible.flatMap(item => {
+    if (item.status !== 'saved' && (item.status !== 'extracted' || !(item.ai_summary ? embeddingKey : ai))) return [];
+    const until = Date.parse(item.created_at) + 65_000;
+    return until > now ? [until] : [];
+  }));
+
   return <section className="library" aria-labelledby="library-title">
+    {refreshUntil > 0 && <RefreshCollection until={refreshUntil}/>}
     <div className="library-heading">
       <h2 id="library-title">{q ? '搜索结果' : '最近收藏'}</h2>
-      <form action="/network" className="search" role="search">
-        <Icon name="search" size={18}/>
-        <input aria-label="搜索收藏" autoComplete="off" type="search" name="q" maxLength={240}
-          key={q} defaultValue={q} placeholder="用关键词或一句话搜索"/>
-        <button type="submit">搜索</button>
-      </form>
+      <CollectionSearch key={q} initialQuery={q}/>
     </div>
     {q && <div className="results-heading">
-      <span>{visible.length} 条搜索结果{!vector && ' · 关键词检索'}</span>
-      <Link href="/network">清除搜索</Link>
+      <span>{visible.length} 条匹配收藏</span>
+      <Link href="/?view=list">查看全部</Link>
     </div>}
-    {searchError || result.error ? <p className="error" role="alert">暂时无法读取收藏，请刷新后重试。</p> :
+    {searchError || result.error ? <p className="error" role="alert">收藏暂时没能加载，请刷新后重试。</p> :
       visible.length ? <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3" aria-label="收藏列表">
         {visible.map(item => {
           const related = (edges ?? []).flatMap(edge => {
@@ -101,14 +77,16 @@ export async function BookmarkCollection({ db, params }: {
           return <BookmarkCard key={item.id} item={item} related={related} ai={ai} canIndex={Boolean(embeddingKey)}/>;
         })}
       </section> :
-      <p className="library-empty">
-        {q ? '没有找到匹配的收藏。' : page > 1 ? '这一页没有收藏。' :
-          <>还没有收藏。<Link className="text-button" href="/">去收藏</Link></>}
-      </p>}
+      <EmptyState
+        title={q ? '还没找到这条芝士' : page > 1 ? '已经翻到底了' : '好东西，从第一条开始'}
+        description={q ? '试试更短的关键词，或换个说法。' : page > 1 ? '回到最近收藏，继续探索。' : '存下一个链接，摘要、标签和关联会逐渐长出来。'}
+        href={q || page > 1 ? '/?view=list' : '/'}
+        action={q || page > 1 ? '查看全部收藏' : '收藏第一条'}/>}
+
     {!q && (page > 1 || rows.length > 24) && <nav className="pagination" aria-label="收藏分页">
-      {page > 1 && <Link href={'/network?page=' + (page - 1)}>上一页</Link>}
+      {page > 1 && <Link href={'/?view=list&page=' + (page - 1)}>上一页</Link>}
       <span>第 {page} 页</span>
-      {rows.length > 24 && page < 10000 && <Link href={'/network?page=' + (page + 1)}>下一页</Link>}
+      {rows.length > 24 && page < 10000 && <Link href={'/?view=list&page=' + (page + 1)}>下一页</Link>}
     </nav>}
   </section>;
 }

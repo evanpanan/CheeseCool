@@ -1,15 +1,19 @@
 import Link from 'next/link';
+import { ThemeSwitch } from './theme-switch';
 import { Brand } from './icons';
-import { CheeseTabs, type CheeseMode } from './cheese-tabs';
 import { AccountMenu, type AccountMenuProps } from './account-menu';
 
-export function WorkspaceHeader({ account, active }: { account?: AccountMenuProps; active?: CheeseMode }) {
+export function WorkspaceHeader({ account, workspace }: { account?: AccountMenuProps; workspace?: boolean }) {
   return <header className={account ? 'topbar workspace-topbar' : 'topbar'}>
     <div className="frame topbar-inner">
       {account ? <>
-        <AccountMenu {...account}/>
-        <CheeseTabs active={active}/>
-      </> : <Link href="/" aria-label="CheeseCool 首页"><Brand/></Link>}
+        <Link className="workspace-brand" href="/" aria-label="CheeseCool 首页"><Brand/></Link>
+        {!workspace && <Link className="workspace-home" href="/">芝士库</Link>}
+        <div className="workspace-header-actions"><ThemeSwitch/><AccountMenu {...account}/></div>
+      </> : <>
+        <Link href="/" aria-label="CheeseCool 首页"><Brand/></Link>
+        <ThemeSwitch/>
+      </>}
     </div>
   </header>;
 }

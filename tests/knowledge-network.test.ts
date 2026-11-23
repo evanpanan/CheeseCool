@@ -39,3 +39,14 @@ test('uses bounded, distinguishable tag links when vectors are absent', () => {
   assert.ok(graph.nodes.every(node => node.connections.length <= 2));
   assert.equal(new Set(graph.links.map(edge => [edge.source_id, edge.target_id].sort().join(':'))).size, graph.links.length);
 });
+
+test('adapts clusters to portrait without changing collections or their relationships', () => {
+  const bookmarks = Array.from({ length: 45 }, (_, index) =>
+    bookmark('portrait-' + index, ['主题' + index % 5, '连接' + index % 3]));
+  const landscape = buildNetwork(bookmarks, []);
+  const portrait = buildNetwork(bookmarks, [], true);
+  assert.ok(portrait.height > portrait.width);
+  assert.deepEqual(portrait.nodes.map(node => node.id).sort(), landscape.nodes.map(node => node.id).sort());
+  assert.deepEqual(portrait.links, landscape.links);
+  assert.ok(portrait.nodes.every(node => node.x >= 0 && node.x <= portrait.width && node.y >= 0 && node.y <= portrait.height));
+});

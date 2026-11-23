@@ -14,7 +14,7 @@ export async function saveAiSettings(_state: SettingsState, form: FormData): Pro
   const db = await database();
   const { data: { user } } = await db.auth.getUser();
   if (!user) redirect('/login');
-  if (!isAiAdmin(user.id)) return { error: true, message: '仅站点管理员可以保存 模型配置。' };
+  if (!isAiAdmin(user.id)) return { error: true, message: '仅站点管理员可以保存模型配置。' };
   const service = serviceDatabase();
   if (!service) return { error: true, message: '请先设置服务端 Supabase 密钥。' };
   const provider = form.get('provider');
@@ -36,8 +36,9 @@ export async function saveAiSettings(_state: SettingsState, form: FormData): Pro
     }
   }
   const { error } = await service.from('site_ai_settings').upsert(values, { onConflict: 'id', defaultToNull: false });
-  if (error) return { error: true, message: '保存失败，请确认已执行 站点配置数据库迁移。' };
+  if (error) return { error: true, message: '保存失败，请确认已执行站点配置数据库迁移。' };
   revalidatePath('/settings');
+  revalidatePath('/');
   revalidatePath('/network');
-  return { message: '站点 模型配置已保存。' };
+  return { message: '模型配置已保存。' };
 }

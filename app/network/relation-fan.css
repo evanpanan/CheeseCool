@@ -1,0 +1,68 @@
+/* The overview stays mounted so exiting the relation view can restore its position. */
+.atlas-workspace:has(> .relation-fan) > :is(.atlas-panel, .network-inspector) { visibility: hidden; pointer-events: none; }
+.relation-fan {
+  --fan-ink: #222b37;
+  --fan-soft: #626d7d;
+  --fan-wire: #abb4c3;
+  --fan-accent: #9b6b12;
+  --fan-hover: #edebdf77;
+  --fan-paper: #fbfbf9;
+  position: absolute; inset: 0; z-index: 3; overflow-y: auto; overscroll-behavior: contain;
+  color: var(--fan-ink); background: var(--fan-paper); padding: 20px clamp(20px, 5vw, 88px) 40px;
+}
+html[data-theme=dark] .relation-fan {
+  --fan-ink: #eff3fb; --fan-soft: #a4b2c6; --fan-wire: #5c708d;
+  --fan-accent: #f3c870; --fan-hover: #25344b80; --fan-paper: #0c1420;
+  background: linear-gradient(135deg, #101b2e 0%, var(--fan-paper) 62%, #101725);
+}
+.relation-fan-pane { max-width: 1050px; min-height: 100%; margin-inline: auto; display: flex; flex-direction: column; }
+.fan-navigation { display: flex; align-items: center; gap: 10px; }
+.relation-fan :is(.fan-navigation button, .fan-pagination button) {
+  display: inline-flex; align-items: center; justify-content: center; gap: 5px; min-height: 44px; min-width: 44px;
+  padding: 0 12px; border-radius: 10px; color: var(--fan-soft); font-size: 14px;
+}
+.relation-fan button:focus-visible { outline: 2px solid var(--fan-accent); outline-offset: 3px; }
+.fan-navigation button:hover, .fan-pagination button:not(:disabled):hover { background: var(--fan-hover); color: var(--fan-ink); }
+.fan-reading-area { flex: 1; display: flex; flex-direction: column; justify-content: center; padding-block: 26px; }
+.fan-diagram { display: grid; grid-template-columns: minmax(0, .92fr) minmax(54px, .6fr) minmax(0, 1.15fr); align-items: center; }
+.fan-origin { grid-column: 1; min-width: 0; padding-inline-end: 16px; }
+.fan-origin .atlas-cheese-badge { width: 52px; height: 52px; margin: 0 0 12px; }
+.fan-origin h2 { color: var(--fan-ink); font-size: clamp(1.5rem, 3vw, 2.65rem); line-height: 1.24; font-weight: 560; letter-spacing: -.045em; overflow-wrap: anywhere; text-wrap: balance; }
+.fan-origin h2:focus { outline: none; }
+.fan-count { font-size: .83rem; margin: 10px 0 0; color: var(--fan-soft); font-variant-numeric: tabular-nums; }
+.fan-summary { color: var(--fan-soft); font-size: .94rem; line-height: 1.7; margin: 18px 0 0; overflow-wrap: anywhere; }
+.fan-wires { grid-column: 2; grid-row: 1; width: 100%; height: 100%; overflow: visible; pointer-events: none; }
+.fan-wires path { fill: none; stroke: var(--fan-wire); stroke-width: 1; }
+.fan-wires .is-active path { stroke: var(--fan-accent); stroke-width: 1.8; }
+.fan-handheld-wire { display: none; }
+.fan-destinations { grid-column: 3; grid-row: 1; list-style: none; padding: 0; margin: 0; min-width: 0; }
+.fan-destinations li { height: 64px; display: flex; align-items: center; }
+.fan-destinations button { display: flex; width: 100%; height: 56px; align-items: center; justify-content: space-between; gap: 8px; border-radius: 10px; padding: 0 12px; text-align: left; color: var(--fan-ink); }
+.fan-destinations button:hover, .fan-destinations button:focus-visible { background: var(--fan-hover); }
+.fan-destinations .fan-chevron { flex: none; color: var(--fan-soft); opacity: .72; }
+.fan-destination-copy { display: grid; min-width: 0; gap: 4px; }
+.fan-destination-copy strong, .fan-destination-copy small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.fan-destination-copy strong { font-size: 1rem; font-weight: 520; }
+.fan-destination-copy small { font-size: .82rem; color: var(--fan-soft); }
+.fan-pagination { display: flex; gap: 7px; justify-content: flex-end; align-items: center; margin-top: 12px; }
+.fan-pagination span { font-size: 13px; color: var(--fan-soft); font-variant-numeric: tabular-nums; }
+.fan-pagination button:disabled { opacity: .32; }
+@media (max-width: 650px) {
+  .relation-fan { padding: 74px 18px calc(34px + env(safe-area-inset-bottom)); }
+  .fan-navigation button:first-child { margin-left: -8px; }
+  .fan-reading-area { justify-content: flex-start; padding-block: 22px; }
+  .fan-diagram { grid-template-columns: 28px minmax(0, 1fr); }
+  .fan-origin { grid-column: 1 / -1; grid-row: 1; padding: 0 6px 14px; }
+  .fan-origin .atlas-cheese-badge { height: 36px; width: 36px; margin-bottom: 8px; }
+  .fan-summary { margin-top: 8px; }
+  .fan-wires { grid-column: 1; grid-row: 2; }
+  .fan-destinations { grid-column: 2; grid-row: 2; }
+  .fan-landscape-wire { display: none; }
+  .fan-handheld-wire { display: block; }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .fan-diagram { animation: fan-appear 280ms cubic-bezier(.22,.61,.36,1) both; }
+  .fan-wires path { transition: stroke 150ms ease, stroke-width 150ms ease; }
+  .fan-destinations button { transition: background-color 150ms ease; }
+}
+@keyframes fan-appear { from { opacity: .1; transform: translateX(8px); } to { opacity: 1; transform: translateX(0); } }

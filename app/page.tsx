@@ -1,23 +1,19 @@
-import { redirect } from 'next/navigation';
+import { WelcomePage } from './welcome';
 import { database, supabaseConfig } from '@/lib/supabase';
 import { isAiAdmin } from '@/lib/ai-admin';
 import { CaptureShell } from './capture-shell';
+import { GraphView } from './network/graph-view';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
 
-export default async function Home({ searchParams }: {
-  searchParams: Promise<{ q?: string | string[]; page?: string | string[] }>;
-}) {
-  if (!supabaseConfig()) redirect('/login');
+export default async function Home() {
+  if (!supabaseConfig()) return <WelcomePage/>;
   const db = await database();
   const { data: { user } } = await db.auth.getUser();
-  if (!user) redirect('/login');
+  if (!user) return <WelcomePage/>;
 
-  const { q, page } = await searchParams;
-  const legacy = new URLSearchParams();
-  if (typeof q === 'string' && q.trim()) legacy.set('q', q.trim().slice(0, 240));
-  if (typeof page === 'string' && /^[1-9]d{0,4}$/.test(page)) legacy.set('page', page);
-  if (legacy.size) redirect('/network?' + legacy.toString());
-  return <CaptureShell account={{ email: user.email, showAdmin: isAiAdmin(user.id) }}/>;
+  return <CaptureShell account={{ email: user.email, avatarUrl: user.user_metadata?.avatar_url || user.user_metadata?.picture, displayName: user.user_metadata?.full_name || user.user_metadata?.name, showAdmin: isAiAdmin(user.id) }}>
+    <GraphView db={db} userId={user.id}/>
+  </CaptureShell>;
 }

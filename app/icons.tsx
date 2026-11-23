@@ -1,7 +1,12 @@
-type IconName = 'plus' | 'search' | 'archive' | 'arrow' | 'close' | 'lock' | 'link';
+import { InteractiveBrand } from './interactive-brand';
+
+type IconName = 'adjust' | 'chevron' | 'plus' | 'search' | 'archive' | 'arrow' | 'close' | 'lock' | 'link' | 'check';
 
 export function Icon({ name, size = 20 }: { name: IconName; size?: number }) {
   const paths: Record<IconName, React.ReactNode> = {
+    adjust: <><path d="M4 7h16M4 17h16"/><circle cx="9" cy="7" r="2.5" fill="var(--surface)"/><circle cx="15" cy="17" r="2.5" fill="var(--surface)"/></>,
+    chevron: <path d="m8 10 4 4 4-4"/>,
+    check: <path d="m5 12.5 4.5 4.5 9.5-10"/>,
     plus: <path d="M12 5v14M5 12h14"/>,
     search: <><circle cx="10.8" cy="10.8" r="5.8"/><path d="m15.2 15.2 4.2 4.2"/></>,
     archive: <><rect x="4" y="4" width="16" height="4" rx="1"/><path d="M5.5 8v10a2 2 0 0 0 2 2h9a2 2 0 0 0 2-2V8M10 12h4"/></>,
@@ -18,8 +23,8 @@ export function CheeseMark({ size = 32 }: { size?: number }) {
 }
 
 export function Brand() {
-  return <span className="brand">
+  return <InteractiveBrand>
     <CheeseMark/>
-    <span>Cheese<span className="brand-accent">Cool</span></span>
-  </span>;
+    <span className="brand-wordmark">Cheese<span className="brand-accent">Cool</span></span>
+  </InteractiveBrand>;
 }
