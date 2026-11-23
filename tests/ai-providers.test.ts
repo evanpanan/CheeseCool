@@ -56,7 +56,7 @@ test('sends summaries to the selected provider using its request format', async 
         return Response.json({ choices: [{ message: { content: JSON.stringify({ summary: '摘要', tags: ['主题'] }) } }] });
       };
       assert.deepEqual(await understand('标题', '正文', { provider: provider as Provider, key: 'test-key', model }), {
-        summary: '摘要', tags: ['主题'],
+        summary: '摘要', tags: ['主题'], evidence: [],
       });
     }
   } finally {

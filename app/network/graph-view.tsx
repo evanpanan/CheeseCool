@@ -15,7 +15,7 @@ export async function GraphView({ db, userId }: {
 }) {
   const { data, error } = await db.from('bookmarks')
     .select('id,title,original_url,final_url,platform,summary,ai_summary,tags,status,created_at,processing_attempted_at')
-    .eq('user_id', userId)
+    .eq('user_id', userId).is('deleted_at', null)
     .order('created_at', { ascending: false }).order('id', { ascending: false })
     .limit(graphLimit + 1);
   const bookmarks = ((data ?? []) as (NetworkBookmark & { created_at: string; processing_attempted_at: string | null })[]).slice(0, graphLimit);
@@ -26,7 +26,7 @@ export async function GraphView({ db, userId }: {
     const edges: NetworkEdge[] = [];
     for (let offset = 0; ; offset += edgePageSize) {
       const { data, error } = await db.from('bookmark_edges')
-        .select('source_id,target_id,score').eq('user_id', userId).in('source_id', ids)
+        .select('source_id,target_id,score,kind').eq('user_id', userId).in('source_id', ids)
         .order('source_id').order('target_id').range(offset, offset + edgePageSize - 1);
       if (error) return { edges, error };
       edges.push(...((data ?? []) as NetworkEdge[]));

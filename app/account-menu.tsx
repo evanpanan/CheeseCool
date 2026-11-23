@@ -43,6 +43,7 @@ export function AccountMenu({ email, avatarUrl, displayName, showAdmin, adminPag
           </button>
         </div>
         {email && <p className="account-email">{email}</p>}
+        <Link className="account-action" href="/manage" onClick={()=>panel.current?.close()}>内容管理</Link>
         {showAdmin && <Link className="account-action" href="/settings" aria-current={adminPage ? 'page' : undefined}
           onClick={() => panel.current?.close()}>站点管理</Link>}
         <form action={action}>

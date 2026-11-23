@@ -1,21 +1,11 @@
 import { after } from 'next/server';
 import type { database } from './supabase';
-import { processBookmark } from './bookmark-processing';
-
-type Client = Awaited<ReturnType<typeof database>>;
-
-// Claim work in the database so concurrent tabs and refreshes do not repeat API calls.
-export async function scheduleBookmarkBackfill(db: Client, wantEmbeddings: boolean) {
-  const { data, error } = await db.rpc('claim_bookmark_backfill', { batch_size: 3, want_embeddings: wantEmbeddings });
-  if (error || !data?.length) return false;
-  after(async () => {
-    await Promise.all(data.map(async ({ id }: { id: string }) => {
-      try {
-        await processBookmark(db, id);
-      } catch {
-        console.error('Bookmark backfill failed; retry is delayed', { bookmarkId: id });
-      }
-    }));
-  });
-  return true;
+import { runKnowledgeJobs } from './knowledge-jobs';
+type Client=Awaited<ReturnType<typeof database>>;
+export async function scheduleBookmarkBackfill(db:Client,_wantEmbeddings:boolean){
+ const {data:{user}}=await db.auth.getUser();if(!user)return false;
+ const {data}=await db.from('bookmark_jobs').select('id,state,available_at').in('state',['queued','running','waiting']).lt('attempts',4).limit(20);
+ if(!data?.length)return false;
+ after(async()=>{try{await runKnowledgeJobs(user.id);}catch{console.error('Knowledge worker could not start');}});
+ return data.some(j=>j.state==='running'||Date.parse(j.available_at)<=Date.now());
 }

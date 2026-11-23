@@ -1,0 +1,11 @@
+{
+  "crons": [
+    {
+      "path": "/api/internal/knowledge-worker",
+      "schedule": "* * * * *"
+    }
+  ],
+  "regions": [
+    "iad1"
+  ]
+}

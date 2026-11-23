@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import type { database } from '@/lib/supabase';
+import { retrievalQuery } from '@/lib/knowledge-content';
 import { embed } from '@/lib/ai';
 import { siteAiConfig } from '@/lib/site-ai';
 import { BookmarkCard, type Bookmark } from './bookmark-card';
@@ -24,14 +25,14 @@ export async function BookmarkCollection({ db, params }: {
   if (q) {
     vector = embeddingKey ? await embed(q, embeddingKey).catch(() => null) : null;
     const { data, error } = await db.rpc('search_bookmarks', {
-      query_text: q, query_embedding: vector ? JSON.stringify(vector) : null,
+      query_text: retrievalQuery(q), query_embedding: vector ? JSON.stringify(vector) : null,
     });
     searchError = !!error;
     ids = (data ?? []).map((row: { id: string }) => row.id);
   }
   const result = ids
-    ? ids.length ? await db.from('bookmarks').select(columns).in('id', ids) : { data: [], error: null }
-    : await db.from('bookmarks').select(columns).order('created_at', { ascending: false })
+    ? ids.length ? await db.from('bookmarks').select(columns).is('deleted_at',null).in('id', ids) : { data: [], error: null }
+    : await db.from('bookmarks').select(columns).is('deleted_at',null).order('created_at', { ascending: false })
       .order('id', { ascending: false }).range(start, start + 24);
 
   const rows = (result.data ?? []) as Bookmark[];

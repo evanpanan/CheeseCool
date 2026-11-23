@@ -24,11 +24,11 @@ export function extractHtml(html: string, url: URL) {
     const title = meta('og:title') || meta('twitter:title') || doc.title;
     const description = meta('og:description') || meta('twitter:description') || meta('description');
     const article = new Readability(doc, { maxElemsToParse: 25_000 }).parse();
-    const text = clean(article?.textContent, 24_000);
+    const text = clean(article?.textContent, 120_000);
     return {
       title: clean(title || article?.title, 240),
       summary: clean(description || article?.excerpt || text, 420),
-      content: text || clean(description, 24_000),
+      content: text || clean(description, 120_000),
       cover_url: image ? imageUrl(image, url) : null,
     };
   } finally {
@@ -53,7 +53,7 @@ async function specialized(url: URL) {
     return {
       title: clean(repo.full_name, 240),
       summary: clean(repo.description || text, 420),
-      content: clean([repo.description, repo.language, repo.topics?.join(', '), text].filter(Boolean).join('\n'), 24_000),
+      content: clean([repo.description, repo.language, repo.topics?.join(', '), text].filter(Boolean).join('\n'), 120_000),
       cover_url: null,
     };
   }
@@ -91,6 +91,7 @@ export async function extract(input: URL) {
     (html.cover_url && html.title && html.summary));
   const data = extra ? { ...extra, cover_url: html?.cover_url ?? extra.cover_url } : validHtml ? html : null;
   return {
+    source: data?.content ? { raw: (page?.text || data.content).slice(0, 1000000), mediaType: page ? 'text/html' : 'text/plain', truncated: (page?.text || data.content).length > 1000000 } : null,
     data: data?.content ? {
       ...data,
       title: data.title || url.hostname,

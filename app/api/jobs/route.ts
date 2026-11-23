@@ -1,0 +1,2 @@
+import { apiUser,apiFailure } from '@/lib/knowledge-api';
+export async function GET(request:Request){try{const {db}=await apiUser(request);const {data,error}=await db.from('bookmark_jobs').select('id,bookmark_id,state,stage,attempts,max_attempts,error_code,error_message,available_at,updated_at').order('updated_at',{ascending:false}).limit(100);if(error)throw error;return Response.json({jobs:data},{headers:{'Cache-Control':'no-store'}});}catch(e){return apiFailure(e);}}

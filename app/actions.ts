@@ -5,12 +5,13 @@ import { redirect } from 'next/navigation';
 import { after } from 'next/server';
 import { database } from '@/lib/supabase';
 import { canonical, identify, pastedUrl } from '@/lib/urls';
+import { retrievalQuery } from '@/lib/knowledge-content';
 import { embed } from '@/lib/ai';
 import { siteAiConfig } from '@/lib/site-ai';
 
 type State = { error?: string; ok?: boolean };
 type CaptureState = State & { duplicate?: boolean; id?: string };
-import { processBookmark } from '@/lib/bookmark-processing';
+import { runKnowledgeJobs } from '@/lib/knowledge-jobs';
 
 async function authenticated() {
   const db = await database();
@@ -25,6 +26,9 @@ export async function saveBookmark(_state: CaptureState, form: FormData): Promis
   let url: URL;
   try { url = pastedUrl(String(form.get('url') ?? '').slice(0, 8000)); }
   catch { return { error: '这段文字里还没找到链接，请检查后再试。' }; }
+  const {data:allowed,error:quotaError}=await db.rpc('consume_knowledge_quota',{action_key:'capture'});
+  if(quotaError)return {error:'收藏服务暂不可用，请稍后重试。'};
+  if(!allowed)return {error:'今日收藏次数已达 200 次，请明天再试。'};
   const key = canonical(url);
   const { data: inserted, error } = await db.from('bookmarks').upsert({
     original_url: url.href, canonical_url: key, platform: identify(url), title: url.hostname,
@@ -38,13 +42,8 @@ export async function saveBookmark(_state: CaptureState, form: FormData): Promis
     id = existing.id;
   }
   const bookmarkId = id;
-  after(async () => {
-    try {
-      await processBookmark(db, bookmarkId);
-    } catch {
-      // The saved bookmark stays in the library and can be retried there.
-    }
-  });
+  const {data:{user}}=await db.auth.getUser();
+  if(user)after(async()=>{try{await runKnowledgeJobs(user.id);}catch{console.error('Saved link is queued; immediate worker unavailable');}});
   revalidatePath('/');
   revalidatePath('/network');
   return { ok: true, duplicate: !inserted, id: bookmarkId };
@@ -53,7 +52,10 @@ export async function saveBookmark(_state: CaptureState, form: FormData): Promis
 export async function retryBookmark(_state: State, form: FormData): Promise<State> {
   const db = await authenticated();
   try {
-    await processBookmark(db, String(form.get('id') ?? ''));
+    const {data:retried,error}=await db.rpc('retry_own_bookmark',{bookmark_id:String(form.get('id')??'')});
+    if(error||!retried)return {error:'任务正在处理或收藏不存在。'};
+    const {data:{user}}=await db.auth.getUser();
+    if(user)after(async()=>{await runKnowledgeJobs(user.id);});
     revalidatePath('/');
     revalidatePath('/network');
     return { ok: true };
@@ -88,13 +90,13 @@ export async function submitWorkspace(_state: WorkspaceResult, form: FormData): 
   const config = await siteAiConfig().catch(() => null);
   const vector = config?.embeddingKey ? await embed(query, config.embeddingKey).catch(() => null) : null;
   const { data, error } = await db.rpc('search_bookmarks', {
-    query_text: query, query_embedding: vector ? JSON.stringify(vector) : null,
+    query_text: retrievalQuery(query), query_embedding: vector ? JSON.stringify(vector) : null,
   });
   if (error) return { kind: 'search', error: '这次没能完成搜索，请稍后再试。' };
   const ids = (data ?? []).map((item: { id: string }) => item.id);
   if (!ids.length) return { kind: 'search', ok: true, query, searchMode: vector ? 'semantic' : 'keyword', bookmarks: [], edges: [] };
   const { data: rows, error: readError } = await db.from('bookmarks')
-    .select('id,title,original_url,final_url,platform,summary,ai_summary,tags,status').in('id', ids);
+    .select('id,title,original_url,final_url,platform,summary,ai_summary,tags,status').is('deleted_at',null).in('id', ids);
   if (readError) return { kind: 'search', error: '搜索结果暂时没能加载，请再试一次。' };
   const bookmarks = ids.flatMap((id: string) => (rows ?? []).find(item => item.id === id) ?? []);
   const edges: import('@/lib/knowledge-network').NetworkEdge[] = [];

@@ -12,7 +12,7 @@
 
 需要 Node.js 22.13+ 或 24，推荐使用 Node.js 24。
 
-1. 创建 Supabase 项目，在 SQL Editor 依次执行 [001 收藏与索引](supabase/migrations/001_second_brain.sql)、[002 旧版 AI 设置](supabase/migrations/002_ai_settings.sql) 和 [003 站点 AI 设置](supabase/migrations/003_site_ai_settings.sql)。已运行过 002 的实例只需补跑 003。
+1. 创建 Supabase 项目，在 SQL Editor 依次执行 [001 收藏与索引](supabase/migrations/001_second_brain.sql)、[002 旧版 AI 设置](supabase/migrations/002_ai_settings.sql) 、[003 站点 AI 设置](supabase/migrations/003_site_ai_settings.sql)，再按编号执行 004、005 和 [006 知识库后端](supabase/migrations/006_knowledge_backend.sql)。已有数据库只执行尚未执行的迁移。
 2. 在 Supabase **Authentication → Sign In / Providers** 关闭 Email、Phone 和 Anonymous 登录，只启用 Google 与 GitHub。首次第三方授权会自动建立账号，因此保留全局 Allow new users to sign up；关闭全局新用户会连同首次 OAuth 登录一起阻止。本站不提供邮箱密码注册或登录。
 3. 将 `.env.example` 复制为 `.env.local`。填入项目 URL 和 Publishable Key。旧项目也可通过 `NEXT_PUBLIC_SUPABASE_ANON_KEY` 使用 anon key；与 Publishable Key 二选一即可。普通收藏数据权限由用户会话和 RLS 控制。
 4. 安装、启动并打开 `http://localhost:3000`。
@@ -68,3 +68,17 @@ npm run build
 ## 搜索与分享元数据
 
 公开首页包含 canonical、网站结构化数据、Open Graph 与 Twitter 分享图。`NEXT_PUBLIC_SITE_URL` 填写正式域名；未填写时可使用 Vercel 的 `VERCEL_PROJECT_PRODUCTION_URL`。Vercel 预览环境禁止收录，生产环境公开首页允许收录。站点地图只包含公开首页，登录、管理和认证路径不收录。更新域名后重新部署，并在搜索引擎站长平台提交 `/sitemap.xml`。
+
+
+## 知识库后端与运维
+
+- `bookmark_jobs` 为持久任务队列：保存收藏时在同一数据库事务中入队；工作进程按租约领取，最多并发领取 3 条，失败退避重试最多 4 次。进程中断后租约到期可重新领取。`after()` 只负责尽快启动，恢复保障来自数据库和 Cron。
+- `vercel.json` 每分钟触发 `/api/internal/knowledge-worker`，必须配置生产环境 `CRON_SECRET`。内部接口用定时任务密钥认证，不接受普通用户调用；公开接口分别检查登录、同源请求和账号所有权。
+- 原始网页快照、提取文本、来源 URL、内容哈希存入 `bookmark_sources`；历史提取文本标记 legacy。模型版本、摘要、标签、逐字证据存入 `bookmark_derivations`。导入版本单独标记，不伪装成本站采集或生成。
+- 正文按重叠窗口分块；支持关键词检索。配置 OpenAI 向量密钥后分批建立 1536 维正文向量与语义关联；仅配置 DeepSeek/Kimi 时仍支持标签关联和关键词证据问答。
+- `/manage` 提供编辑标题/标签/笔记、回收站恢复、重新采集、任务状态、原文版本、JSON 备份导入导出和带引用问答。人工标签和标题不会被自动整理覆盖。
+- 问答仅使用当前账号可访问且未删除的来源分段；服务端校验引用的段落 ID 与原文逐字摘录，证据不足时不返回无引用的答案。这不能替代人工事实核对。
+- 普通公开 HTML、GitHub 公开仓库、X 公开嵌入已支持。登录墙、仅客户端渲染的正文、音视频转录、PDF/Office、飞书同步暂不保证采集；失败会显示读取受限，链接和笔记仍保存。此版本不宣称支持任意网站或完整多媒体采集。
+- 备份为用户下载的 JSON，不是异地自动灾备。单次最多 500 条收藏、1000 份来源、1000 个整理版本、10 MB；超限明确返回错误，不静默截断。导入逐条执行、自动跳过已有 URL，失败后已成功的条目会保留。手动备份包含原始资料，请自行妥善保管；不包含账号密钥或模型密钥。
+- 模型问答限制为每账号每小时 20 次，收藏每账号每天 200 次，导入每天 500 次。定时任务不会对已完成条目反复调用模型。
+- 安全与恢复测试：`npm test`；生产构建：`npm run build`。重点覆盖租约恢复、跨账号隔离、原件只读、回收站检索排除、模型引用校验和持久配额。
