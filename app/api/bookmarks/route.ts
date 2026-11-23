@@ -79,6 +79,7 @@ export async function POST(request:Request){try{
  }else if(body.operation==='delete'||body.operation==='restore'){
   const {error}=await db.from('bookmarks').update({deleted_at:body.operation==='delete'?new Date().toISOString():null}).eq('id',id);if(error)throw error;
   const service=serviceDatabase();if(service)await service.rpc('refresh_tag_edges',{owner_id:user.id});
+  if(body.operation==='restore')after(async()=>{await runKnowledgeJobs(user.id);});
  }else if(body.operation==='retry'||body.operation==='recapture'){
   if(owned.deleted_at)throw new ApiError(400,'请先从回收站恢复收藏');
   if(body.operation==='recapture'){
