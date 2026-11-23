@@ -64,3 +64,7 @@ npm run build
 测试使用本地 PostgreSQL（PGlite）和真实 pgvector 执行生产迁移，使用固定向量验证索引行为，不消耗 AI 配额。采集测试覆盖分享文字、页面元数据、正文提取和公开网络地址校验。另见 [参考仓库研究](docs/reference-research.md)。
 
 登录卡片的粒子变形参考 [Dissolve ThinkingOrb](https://dissolve.rselmi.com/components/thinking-orb/)，采用 MIT 许可，见 [版权说明](docs/licenses/dissolve.txt)。芝士形状和主题配色为本项目适配。
+
+## 搜索与分享元数据
+
+公开首页包含 canonical、网站结构化数据、Open Graph 与 Twitter 分享图。`NEXT_PUBLIC_SITE_URL` 填写正式域名；未填写时可使用 Vercel 的 `VERCEL_PROJECT_PRODUCTION_URL`。Vercel 预览环境禁止收录，生产环境公开首页允许收录。站点地图只包含公开首页，登录、管理和认证路径不收录。更新域名后重新部署，并在搜索引擎站长平台提交 `/sitemap.xml`。

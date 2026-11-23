@@ -4,7 +4,7 @@ import { AuthPage } from '../welcome';
 import { database, supabaseConfig } from '@/lib/supabase';
 
 export const dynamic = 'force-dynamic';
-export const metadata: Metadata = { title: '登录' };
+export const metadata: Metadata = { title: '登录', robots:{index:false,follow:false} };
 
 export default async function LoginPage({searchParams}: {searchParams: Promise<{error?:string}>}) {
   if (supabaseConfig()) {

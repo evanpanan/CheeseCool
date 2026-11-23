@@ -1,8 +1,11 @@
+import type { Metadata } from 'next';
 import { WelcomePage } from './welcome';
 import { database, supabaseConfig } from '@/lib/supabase';
 import { isAiAdmin } from '@/lib/ai-admin';
 import { CaptureShell } from './capture-shell';
 import { GraphView } from './network/graph-view';
+
+export const metadata:Metadata={alternates:{canonical:'/'}};
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;

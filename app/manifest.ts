@@ -1,11 +1,12 @@
 import type { MetadataRoute } from 'next';
+import {siteDescription} from '@/lib/site-metadata';
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
     id: '/',
     name: 'CheeseCool',
     short_name: 'CheeseCool',
-    description: '智能收藏与芝士库。',
+    description: siteDescription,
     start_url: '/',
     display: 'standalone',
     lang: 'zh-CN',

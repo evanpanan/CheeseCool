@@ -7,7 +7,7 @@ import { readSiteAiSettings } from '@/lib/site-ai';
 import { SettingsForm } from './settings-form';
 import { SettingsHeading } from './settings-heading';
 
-export const metadata = { title: '站点管理' };
+export const metadata = { title: '站点管理',robots:{index:false,follow:false} };
 export const dynamic = 'force-dynamic';
 
 export default async function SettingsPage() {

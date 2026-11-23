@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from 'next';
+import { siteMetadata, siteStructuredData } from '@/lib/site-metadata';
 import { appearanceBootstrap } from '@/lib/appearance';
 import './globals.css';
 import './appearance.css';
@@ -6,20 +7,7 @@ import './interaction.css';
 import './intelligence.css';
 import { SessionMotion } from './session-motion';
 
-export const metadata: Metadata = {
-  applicationName: 'CheeseCool',
-  title: { default: 'CheeseCool · 把好东西都存起来', template: '%s · CheeseCool' },
-  description: '把好东西都存起来。智能收藏与芝士库。',
-  openGraph: {
-    siteName: 'CheeseCool',
-    title: 'CheeseCool · 把好东西都存起来',
-    description: '智能收藏与芝士库。',
-    type: 'website',
-  },
-  appleWebApp: { capable: true, title: 'CheeseCool', statusBarStyle: 'default' },
-  robots: { index: false, follow: false },
-  referrer: 'same-origin',
-};
+export const metadata: Metadata = siteMetadata();
 
 export const viewport: Viewport = {
   themeColor: '#FFFFFF',
@@ -28,8 +16,9 @@ export const viewport: Viewport = {
 };
 
 export default function Layout({ children }: { children: React.ReactNode }) {
+  const structured=siteStructuredData();
   return <html lang="zh-CN" suppressHydrationWarning>
-    <head><script dangerouslySetInnerHTML={{ __html: appearanceBootstrap }}/></head>
+    <head><script dangerouslySetInnerHTML={{ __html: appearanceBootstrap }}/>{structured && <script type="application/ld+json" dangerouslySetInnerHTML={{__html:JSON.stringify(structured).replace(/</g,'\\u003c')}}/>}</head>
     <body>{children}<SessionMotion/></body>
   </html>;
 }
