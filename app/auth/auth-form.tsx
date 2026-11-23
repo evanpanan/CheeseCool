@@ -1,30 +1,14 @@
 'use client';
-import { useActionState, useEffect, useRef, useState } from 'react';
+import { useActionState, useEffect, useState } from 'react';
 import { oauthSignIn } from './client';
 import { finishAuthNavigation } from '../session-motion';
 import { CheeseSculpture } from './cheese-sculpture';
 import { particleStory } from '@/lib/cheese-particles';
+import { GenerativeText } from '../generative-text';
 
 function GenerativeHeading({index,paused}:{index:number;paused:boolean}) {
-  const text=particleStory[index].copy;
-  const previous=useRef(index);
-  const [copy,setCopy]=useState({text,length:text.length,phase:'hold'});
-  useEffect(()=>{
-    if(previous.current===index)return;
-    previous.current=index;
-    if(window.matchMedia('(prefers-reduced-motion: reduce)').matches){setCopy({text,length:text.length,phase:'hold'});return;}
-    setCopy(current=>({...current,phase:'out'}));
-    const timer=setTimeout(()=>setCopy({text,length:0,phase:'type'}),220);
-    return ()=>clearTimeout(timer);
-  },[index,text]);
-  useEffect(()=>{
-    if(copy.phase!=='type')return;
-    if(paused || window.matchMedia('(prefers-reduced-motion: reduce)').matches){setCopy(current=>({...current,length:current.text.length,phase:'hold'}));return;}
-    const timer=setTimeout(()=>setCopy(current=>({...current,length:current.length+1,phase:current.length+1>=current.text.length?'hold':'type'})),55);
-    return ()=>clearTimeout(timer);
-  },[copy,paused]);
   return <header className="auth-heading auth-generative-heading">
-    <h1 aria-label="登录你的芝士库"><span aria-hidden="true" data-phase={copy.phase}>{copy.text.slice(0,copy.length)}<i className="auth-caret"/></span></h1>
+    <h1 aria-label="登录你的芝士库"><GenerativeText text={particleStory[index].copy} paused={paused}/></h1>
   </header>;
 }
 export function AuthForm({callbackError=false}:{callbackError?:boolean}) {

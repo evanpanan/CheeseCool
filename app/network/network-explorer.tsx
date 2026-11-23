@@ -7,6 +7,7 @@ import { useWorkspaceActivity } from '../workspace-activity';
 import { useAppearance } from '../theme-switch';
 import { CheeseSculpture } from '../auth/cheese-sculpture';
 import { OrbitCanvas } from './orbit-canvas';
+import { GenerativeText } from '../generative-text';
 
 const emptyHeadlines = ['让第一个灵感落在这里', '把好东西都存起来', '让收藏长出新的灵感', '从一个链接开始连接'];
 
@@ -41,7 +42,7 @@ export function NetworkExplorer({ bookmarks, edges }: {
   }, [isEmpty]);
 
   if (isEmpty) {
-    return <section className="workspace-empty hero" aria-labelledby="hero-title"><div className="intelligent-empty"><CheeseSculpture shape={particleStory[emptyPhase].shape} onActivate={()=>setEmptyPhase(value=>(value+1)%particleStory.length)}/><h1 id="hero-title"><span key={headline} className="empty-headline">{emptyHeadlines[headline]}</span></h1></div></section>;
+    return <section className="workspace-empty hero" aria-labelledby="hero-title"><div className="intelligent-empty"><CheeseSculpture shape={particleStory[emptyPhase].shape} onActivate={()=>setEmptyPhase(value=>(value+1)%particleStory.length)}/><h1 id="hero-title" aria-label={emptyHeadlines[headline]}><GenerativeText text={emptyHeadlines[headline]} paused={composing}/></h1></div></section>;
   }
 
   return <section className="reference-library-page" aria-label="芝士库">
