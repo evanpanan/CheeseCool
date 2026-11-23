@@ -5,6 +5,7 @@ import './globals.css';
 import './appearance.css';
 import './interaction.css';
 import './intelligence.css';
+import './header-controls.css';
 import { SessionMotion } from './session-motion';
 
 export const metadata: Metadata = siteMetadata();

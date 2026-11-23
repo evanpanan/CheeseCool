@@ -45,7 +45,7 @@ export function ThemeSwitch() {
     window.dispatchEvent(new Event(appearanceEvent));
   }
 
-  return <button type="button" className="appearance-switch" role="switch" aria-checked={theme === 'dark'}
+  return <button type="button" className="appearance-switch header-control" role="switch" aria-checked={theme === 'dark'}
     aria-label="暗色模式" title={theme === 'dark' ? '切换到浅色模式' : '切换到暗色模式'} onClick={toggleAppearance}>
     <span className="appearance-face appearance-night-action" aria-hidden="true">
       <svg viewBox="0 0 24 24" fill="none"><path d="M18.7 15.3A8.1 8.1 0 0 1 8.7 5.1a8.2 8.2 0 1 0 10 10.2Z"/><path d="m17.4 3 .7 2.4 2.4.7-2.4.7-.7 2.4-.7-2.4-2.4-.7 2.4-.7Z" fill="currentColor" stroke="none"/></svg>

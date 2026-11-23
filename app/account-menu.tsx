@@ -22,7 +22,7 @@ export function AccountMenu({ email, avatarUrl, displayName, showAdmin, adminPag
   const initial = Array.from(name)[0].toLocaleUpperCase();
 
   return <div className="account-menu">
-    <button type="button" className="account-trigger" aria-haspopup="dialog" aria-label="账户菜单" aria-expanded={open} aria-controls={panelId}
+    <button type="button" className="account-trigger header-control" title="账户" aria-haspopup="dialog" aria-label="账户菜单" aria-expanded={open} aria-controls={panelId}
       onClick={event => {
         event.currentTarget.focus({ preventScroll: true });
         panel.current?.showModal();
@@ -32,7 +32,6 @@ export function AccountMenu({ email, avatarUrl, displayName, showAdmin, adminPag
         {safeAvatar && brokenAvatar !== safeAvatar ? <img src={safeAvatar} alt="" referrerPolicy="no-referrer"
           onError={() => setBrokenAvatar(safeAvatar)}/> : initial}
       </span>
-      <span className="account-menu-icon" aria-hidden="true"><i/><i/></span>
     </button>
     <dialog id={panelId} ref={panel} onClose={() => setOpen(false)} className="account-panel" aria-labelledby={titleId}
       onClick={event => { if (event.target === event.currentTarget) panel.current?.close(); }}>
