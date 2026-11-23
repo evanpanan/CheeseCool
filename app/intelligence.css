@@ -35,10 +35,8 @@
 html[data-theme] .workspace-composer .capture-feedback{background:transparent;padding:0;box-shadow:none;border:0}
 
 .brand-loader{position:relative;display:inline-grid;place-items:center;flex:none;width:96px;height:96px}
-.brand-loader>img{display:block;width:72px;height:72px;object-fit:contain;filter:drop-shadow(0 7px 8px #8b661717)}
+.brand-loader>img{display:block;width:72px;height:72px;object-fit:contain;filter:drop-shadow(0 7px 8px #8b661717);animation:brand-loader-float 2.6s ease-in-out infinite}
 .brand-loader-check{position:absolute;right:5px;bottom:7px;display:grid;place-items:center;width:24px;height:24px;border-radius:50%;background:#438365;color:#fff;border:3px solid var(--paper)}
 .brand-loader-check svg{width:15px;height:15px}
- .brand-loader>canvas{position:absolute;width:120px;height:120px;max-width:none;left:50%;top:50%;transform:translate(-50%,-50%);opacity:0;pointer-events:none}
-.brand-loader[data-ready=true]>canvas{opacity:1}
-.brand-loader[data-ready=true]>img{visibility:hidden}
-@media(prefers-reduced-motion:reduce){.brand-loader>canvas{display:none}.brand-loader[data-ready=true]>img{visibility:visible}}
+@keyframes brand-loader-float{0%,100%{transform:translateY(2px) rotate(-2deg)}50%{transform:translateY(-4px) rotate(2deg)}}
+@media(prefers-reduced-motion:reduce){.brand-loader>img{animation:none}}
