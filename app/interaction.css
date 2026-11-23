@@ -48,7 +48,7 @@
 .session-motion{position:fixed;inset:0;z-index:10000;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:20px;background:var(--paper);color:var(--ink);font-size:14px;letter-spacing:.5px;backdrop-filter:blur(12px)}
 .session-motion.is-leaving{animation:session-cover .52s cubic-bezier(.22,1,.36,1) both}
 .session-motion.is-arriving{pointer-events:none;animation:session-reveal .65s cubic-bezier(.22,1,.36,1) both}
-.session-motion-symbol{position:relative;width:76px;height:76px;display:grid;place-items:center}
+.session-motion-symbol{position:relative;width:96px;height:96px;display:grid;place-items:center}
 .session-motion-symbol>span{font-size:40px;display:block;animation:session-cheese .52s cubic-bezier(.22,1.3,.36,1) both}
 .session-motion-symbol>i{position:absolute;width:5px;height:5px;background:var(--accent);border-radius:2px;animation:session-spark .7s ease-out both;--spark-x:32px;--spark-y:-28px}
 .session-motion-symbol>i:nth-child(3){--spark-x:-30px;--spark-y:-18px;animation-delay:.06s}
@@ -61,6 +61,5 @@
 @media(prefers-reduced-motion:reduce){.auth-heading h1,.auth-notice,.session-motion,.session-motion-symbol>*{animation:none!important}.session-motion.is-arriving{display:none}}
 
 .session-motion.is-arriving.is-confirmed{animation:session-confirmed-reveal 1.8s ease both}
-.session-motion.is-confirmed .session-motion-symbol{width:160px;height:140px}
-.session-motion.is-confirmed .auth-sculpture{width:160px;height:140px;margin:0}
+.session-motion.is-confirmed .session-motion-symbol{width:96px;height:96px}
 @keyframes session-confirmed-reveal{0%,65%{opacity:1}100%{opacity:0}}

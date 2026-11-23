@@ -64,7 +64,6 @@ export function AuthForm({callbackError=false}:{callbackError?:boolean}) {
         <button className={`oauth-button oauth-${value}`} disabled={pending || leaving} aria-busy={pending && provider===value}>
           <span className="oauth-provider-icon" aria-hidden="true">{pending && provider===value?<span className="capture-progress"/>:<ProviderIcon provider={value}/>}</span>
           <span>{(pending || leaving) && provider===value?'正在连接…':`使用 ${value==='google'?'Google':'GitHub'} 继续`}</span>
-          <span className="oauth-arrow" aria-hidden="true">↗</span>
         </button>
       </form>)}
     </div>

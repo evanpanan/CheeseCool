@@ -1,6 +1,6 @@
 'use client';
 import { useEffect, useState } from 'react';
-import { CheeseSculpture } from './auth/cheese-sculpture';
+import { BrandLoader } from './brand-loader';
 
 const eventName = 'cheesecool:session-motion';
 const arrivalKey = 'cheesecool:session-arrival';
@@ -34,7 +34,7 @@ export function SessionMotion() {
     return () => { window.removeEventListener(eventName,play); clearTimeout(timer); };
   },[]);
   return motion && <div className={`session-motion ${motion.arriving?'is-arriving':'is-leaving'} ${motion.confirmed?'is-confirmed':''}`} role="status" aria-live="polite">
-    <div className="session-motion-symbol" aria-hidden="true">{motion.confirmed?<CheeseSculpture state="done"/>:<><span>🧀</span><i/><i/><i/></>}</div>
+    <div className="session-motion-symbol" aria-hidden="true"><BrandLoader complete={motion.confirmed}/></div>
     <span>{motion.journey==='logout'?'下次灵感见。':(motion.journey==='google' || motion.journey==='github') && !motion.arriving?`正在前往 ${motion.journey==='google'?'Google':'GitHub'}`:'灵感，已就位。'}</span>
   </div>;
 }

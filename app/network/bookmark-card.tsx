@@ -15,7 +15,7 @@ export function BookmarkCard({ item, related, ai, canIndex }: { item: Bookmark; 
     {item.cover_url && <div className="cover" style={{ backgroundImage: `url(${JSON.stringify(item.cover_url)})` }}/>}
     <div className="bookmark-body">
       <span className="platform"><Icon name="link" size={14}/> {platformNames[item.platform]}</span>
-      <h3><a href={item.final_url || item.original_url} target="_blank" rel="noopener noreferrer">{item.title}<Icon name="arrow" size={17}/></a></h3>
+      <h3><a href={item.final_url || item.original_url} target="_blank" rel="noopener noreferrer">{item.title}</a></h3>
       {(item.ai_summary || item.summary) && <div className="summary-label"><AiSignal state="connected" size={15}/>{item.ai_summary?'AI 摘要':'网页摘要'}</div>}
       {(item.ai_summary || item.summary) && <p>{item.ai_summary || item.summary}</p>}
       {!!item.tags.length && <ul aria-label="标签" className="tags">{item.tags.map(tag => <li key={tag}><Link href={'/?view=list&q=' + encodeURIComponent(tag)}>{tag}</Link></li>)}</ul>}
