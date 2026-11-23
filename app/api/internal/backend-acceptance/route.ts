@@ -3,7 +3,7 @@ import {createHmac,timingSafeEqual,randomUUID} from 'node:crypto';
 import {createClient} from '@supabase/supabase-js';
 import {runKnowledgeJobs} from '@/lib/knowledge-jobs';
 import {serviceDatabase,supabaseConfig} from '@/lib/supabase';
-export const maxDuration=180;
+export const maxDuration=300;
 export async function POST(request:Request){
  const secret=process.env.CRON_SECRET;if(!secret)return new Response(null,{status:401});
  const expected=createHmac('sha256',secret).update('knowledge-backend-acceptance').digest('hex');
@@ -69,8 +69,24 @@ export async function POST(request:Request){
   const confirmed=await ok(a.cookie,'/api/insights',{operation:'confirm',id:analysis.id});ensure(confirmed.bookmark_id,'Confirmed knowledge note');ensure((await api(a.cookie,'/api/insights',{operation:'confirm',id:analysis.id})).status===409,'No duplicate confirmation');checks.push('typed_originals_files_and_confirmed_analysis');
   const longRecord=await ok(a.cookie,'/api/documents',{kind:'note',title:'长材料覆盖验收',content:'这是一份虚构验收材料。原件保护要求保留完整正文，模型只能新增整理结果，不能覆盖原稿。长材料必须逐段处理并保留已完成的分段。'.repeat(110)});await wait(a.cookie,a.id);const longDetail=await ok(a.cookie,'/api/bookmarks?id='+longRecord.id);ensure(longDetail.derivations.some((d:{coverage?:{complete?:boolean;parts?:number}})=>d.coverage?.complete&&(d.coverage.parts||0)>1),'Full long-document coverage');checks.push('resumable_full_document_summarization');
   await wait(a.cookie,a.id);
+  const fullBackup=await ok(a.cookie,'/api/bookmarks?format=export');
+  ensure(fullBackup.attachments.length===2&&fullBackup.insights.length===1,'Complete file and analysis backup');
+  const fileRow=fullBackup.bookmarks.find((r:{id:string})=>r.id===uploaded.id);
+  const fileSources=fullBackup.sources.filter((s:{bookmark_id:string})=>s.bookmark_id===uploaded.id);
+  const restoredFile=await ok(b.cookie,'/api/bookmarks',{operation:'import',bookmarks:[fileRow],sources:fileSources});
+  const restoredId=restoredFile.resolved_id;ensure(restoredId,'Typed import identity');
+  const attachment=fullBackup.attachments.find((f:{bookmark_id:string})=>f.bookmark_id===uploaded.id);
+  const restoreForm=new FormData();restoreForm.set('bookmark_id',restoredId);restoreForm.set('file',new File([Buffer.from(attachment.data,'base64')],attachment.filename,{type:attachment.media_type}));
+  const restoreResponse=await fetch(origin+'/api/assets',{method:'POST',headers:{Cookie:b.cookie,Origin:origin},body:restoreForm});ensure(restoreResponse.status===200,'Private attachment restoration');
+  for(const source of fileSources)await ok(b.cookie,'/api/bookmarks',{operation:'import_source',id:restoredId,source});
+  const restoredDetail=await ok(b.cookie,'/api/bookmarks?id='+restoredId);ensure(restoredDetail.assets.length===1,'Restored attachment reference');
+  const restoredDownload=await fetch(origin+'/api/assets?id='+restoredDetail.assets[0].id,{headers:{Cookie:b.cookie}});ensure((await restoredDownload.text()).includes('虚构文档原文'),'Restored original bytes');
+  const historical=fullBackup.insights[0];await ok(b.cookie,'/api/insights',{operation:'import_draft',value:{...historical,source_ids:[restoredId],evidence:[]}});
+  const importedProfiles=await ok(b.cookie,'/api/insights');ensure(importedProfiles.insights.some((i:{origin:string;state:string})=>i.origin==='import'&&i.state==='draft'),'Imported analysis provenance');
+  checks.push('private_attachment_and_analysis_backup_restore');
 
  }catch(error){failure=error instanceof Error?error.message:'Acceptance failed';}
  finally{for(const id of accounts){const result=await service.auth.admin.deleteUser(id);cleanup.push(!result.error);}try{await runKnowledgeJobs();}catch{cleanup.push(false);}}
+ console.info('backend_acceptance',JSON.stringify({checks,cleanup,error:failure||undefined}));
  return Response.json({checks,cleanup,error:failure||undefined},{status:failure?500:200});
 }

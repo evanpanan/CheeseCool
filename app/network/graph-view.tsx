@@ -14,7 +14,7 @@ export async function GraphView({ db, userId }: {
   userId: string;
 }) {
   const { data, error } = await db.from('bookmarks')
-    .select('id,title,original_url,final_url,platform,summary,ai_summary,tags,status,created_at,processing_attempted_at')
+    .select('id,title,original_url,final_url,platform,summary,ai_summary,tags,status,created_at,processing_attempted_at,record_type,attributes')
     .eq('user_id', userId).is('deleted_at', null)
     .order('created_at', { ascending: false }).order('id', { ascending: false })
     .limit(graphLimit + 1);

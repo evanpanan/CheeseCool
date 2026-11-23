@@ -16,10 +16,10 @@ export async function processBookmark(db:Client,id:string,onStage:(stage:string)
  await onStage('extract');
  if((!source.content||!source.source_hash)&&['document','audio','video'].includes(source.record_type)){
   let result;
-  try{result=await extractAsset(db,id,row.user_id,source.record_type);}catch(error){if(error instanceof AssetError){if(error.waiting)return {waiting:true,reason:error.code};throw new ProcessingError(error.code,error.message,!['document_parse','asr_empty','ocr_empty','ocr_too_large'].includes(error.code));}throw error;}
+  try{result=await extractAsset(db,id,row.user_id,source.record_type);}catch(error){if(error instanceof AssetError){if(error.waiting){await db.from('bookmarks').update({attributes:{...source.attributes,processing_wait:error.code}}).eq('id',id).eq('user_id',row.user_id);return {waiting:true,reason:error.code};}throw new ProcessingError(error.code,error.message,!['document_parse','asr_empty','ocr_empty','ocr_too_large'].includes(error.code));}throw error;}
   if(result.text.length>500000)throw new ProcessingError('document_too_large','原件已保留，正文超过单条 50 万字符上限，请拆分处理',false);
   const hash=createHash('sha256').update(result.text).digest('hex');
-  const {data:updated,error:updateError}=await db.from('bookmarks').update({content:result.text,source_hash:hash,status:'extracted',attributes:{...source.attributes,extraction_method:result.method}}).eq('id',id).eq('user_id',row.user_id).is('deleted_at',null).select('*').single();
+  const {data:updated,error:updateError}=await db.from('bookmarks').update({content:result.text,source_hash:hash,status:'extracted',attributes:{...source.attributes,extraction_method:result.method,processing_wait:null}}).eq('id',id).eq('user_id',row.user_id).is('deleted_at',null).select('*').single();
   if(updateError)throw new ProcessingError('extract_write','原件已保存，提取文本保存失败');source=updated;
  }
  if(!source.content||!source.source_hash){

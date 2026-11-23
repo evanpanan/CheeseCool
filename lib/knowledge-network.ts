@@ -11,6 +11,8 @@ export type NetworkBookmark = {
   ai_summary: string | null;
   tags: string[];
   status: string;
+  record_type?: string;
+  attributes?: Record<string, unknown>;
 };
 
 export type NetworkEdge = { source_id: string; target_id: string; score: number; kind?: 'tag' };

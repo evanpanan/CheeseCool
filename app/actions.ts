@@ -96,7 +96,7 @@ export async function submitWorkspace(_state: WorkspaceResult, form: FormData): 
   const ids = (data ?? []).map((item: { id: string }) => item.id);
   if (!ids.length) return { kind: 'search', ok: true, query, searchMode: vector ? 'semantic' : 'keyword', bookmarks: [], edges: [] };
   const { data: rows, error: readError } = await db.from('bookmarks')
-    .select('id,title,original_url,final_url,platform,summary,ai_summary,tags,status').is('deleted_at',null).in('id', ids);
+    .select('id,title,original_url,final_url,platform,summary,ai_summary,tags,status,record_type,attributes').is('deleted_at',null).in('id', ids);
   if (readError) return { kind: 'search', error: '搜索结果暂时没能加载，请再试一次。' };
   const bookmarks = ids.flatMap((id: string) => (rows ?? []).find(item => item.id === id) ?? []);
   const edges: import('@/lib/knowledge-network').NetworkEdge[] = [];
