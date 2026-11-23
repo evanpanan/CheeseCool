@@ -37,7 +37,7 @@ export async function saveAiSettings(_state: SettingsState, form: FormData): Pro
   }
   const { error } = await service.from('site_ai_settings').upsert(values, { onConflict: 'id', defaultToNull: false });
   if (error) return { error: true, message: '保存失败，请确认已执行站点配置数据库迁移。' };
-  await service.from('bookmark_jobs').update({state:'queued',attempts:0,available_at:new Date().toISOString()}).in('state',['waiting','failed']).in('error_code',['model_unconfigured','model_unavailable','embedding_unavailable']);
+  await service.from('bookmark_jobs').update({state:'queued',attempts:0,available_at:new Date().toISOString()}).in('state',['waiting','failed']).in('error_code',['model_unconfigured','model_unavailable','embedding_unavailable','asr_unconfigured','ocr_unconfigured','asr_unavailable']);
   revalidatePath('/settings');
   revalidatePath('/');
   revalidatePath('/network');

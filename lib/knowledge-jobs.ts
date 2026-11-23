@@ -5,13 +5,18 @@ class LostLease extends Error{}
 type Job={id:string;user_id:string;bookmark_id:string;lease_token:string;attempts:number;max_attempts:number};
 export async function runKnowledgeJobs(ownerId?:string){
  const db=serviceDatabase();if(!db)throw new Error('Worker database is not configured');
+ const {data:garbage}=await db.from('bookmark_asset_gc').select('id,object_path').lte('available_at',new Date().toISOString()).limit(30);
+ if(garbage?.length){
+  const {data:live,error:readError}=await db.from('bookmark_assets').select('object_path').in('object_path',garbage.map(g=>g.object_path));
+  if(!readError){const keep=new Set((live||[]).map(a=>a.object_path));const paths=garbage.filter(g=>!keep.has(g.object_path)).map(g=>g.object_path);const {error}=paths.length?await db.storage.from('knowledge-originals').remove(paths):{error:null};if(!error)await db.from('bookmark_asset_gc').delete().in('id',garbage.map(g=>g.id));}
+ }
  const {data,error}=await db.rpc('claim_bookmark_jobs',{owner_id:ownerId||null,batch_size:3});
  if(error)throw new Error('Job claim failed');
  const outcomes=await Promise.all(((data||[]) as Job[]).map(async job=>{
   const patch=async(values:object)=>{const {data,error}=await db.from('bookmark_jobs').update({...values,updated_at:new Date().toISOString()}).eq('id',job.id).eq('lease_token',job.lease_token).select('id').maybeSingle();if(error)throw new Error('Job checkpoint failed');if(!data)throw new LostLease();};
   try{
    const result=await processBookmark(db,job.bookmark_id,async stage=>patch({stage}));
-   await patch(result.waiting?{state:'waiting',attempts:Math.max(0,job.attempts-1),error_code:result.reason,error_message:result.reason==='index_pending'?'正在分批建立正文索引':'等待配置模型服务',available_at:new Date(Date.now()+(result.reason==='index_pending'?1000:600000)).toISOString(),lease_until:null}:
+   await patch(result.waiting?{state:'waiting',attempts:Math.max(0,job.attempts-1),error_code:result.reason,error_message:result.reason==='index_pending'?'正在分批建立正文索引':result.reason==='organize_pending'?'正在逐段整理完整材料':result.reason==='asr_unconfigured'?'音视频原件已保存，等待配置 OpenAI 转写服务':result.reason==='ocr_unconfigured'?'扫描文档原件已保存，等待 OCR 服务':'等待配置模型服务',available_at:new Date(Date.now()+(['index_pending','organize_pending'].includes(result.reason||'')?1000:600000)).toISOString(),lease_until:null}:
     {state:'complete',stage:'complete',error_code:null,error_message:null,lease_until:null});
    return {state:result.waiting?'waiting':'complete'};
   }catch(error){

@@ -10,24 +10,29 @@ export const maxDuration=60;
 export async function GET(request:Request){try{
  const {db}=await apiUser(request);const params=new URL(request.url).searchParams;
  if(params.get('format')==='export'){
-  const {data:bookmarks,error}=await db.from('bookmarks').select('id,original_url,final_url,title,tags,notes,summary,ai_summary,content,source_hash,status,created_at,deleted_at').order('id').limit(501);
+  const {data:bookmarks,error}=await db.from('bookmarks').select('id,original_url,final_url,title,tags,notes,summary,ai_summary,content,source_hash,status,created_at,deleted_at,record_type,attributes').order('id').limit(501);
   if(error)throw error;if((bookmarks?.length||0)>500)throw new ApiError(413,'超过单次导出 500 条上限，请分批导出');
-  const {data:sources,error:sourceError}=await db.from('bookmark_sources').select('bookmark_id,source_hash,source_url,raw_content,extracted_content,media_type,truncated,captured_at,origin').order('id').limit(1001);
+  const {data:sources,error:sourceError}=await db.from('bookmark_sources').select('bookmark_id,source_hash,source_url,raw_content,extracted_content,media_type,truncated,captured_at,origin,metadata').order('id').limit(1001);
   if(sourceError)throw sourceError;if((sources?.length||0)>1000)throw new ApiError(413,'来源版本超过单次导出上限');
-  const {data:derivations,error:derivationError}=await db.from('bookmark_derivations').select('bookmark_id,source_hash,provider,model,prompt_version,summary,tags,evidence,created_at,origin').order('id').limit(1001);
+  const {data:derivations,error:derivationError}=await db.from('bookmark_derivations').select('bookmark_id,source_hash,provider,model,prompt_version,summary,tags,evidence,created_at,origin,coverage').order('id').limit(1001);
   if(derivationError)throw derivationError;if((derivations?.length||0)>1000)throw new ApiError(413,'整理版本超过单次导出上限');
-  const payload=JSON.stringify({format:'cheesecool-backup',version:1,exported_at:new Date().toISOString(),bookmarks,sources,derivations});
+  const {data:assets,error:assetsError}=await db.from('bookmark_assets').select('*').order('id').limit(101);if(assetsError)throw assetsError;
+  if((assets?.length||0)>100||(assets||[]).reduce((n,a)=>n+a.bytes,0)>6000000)throw new ApiError(413,'附件超过单次备份 6 MB 或 100 个上限，请分批备份');
+  const service=serviceDatabase();const attachments=[];
+  for(const asset of assets||[]){if(!service)throw new ApiError(503,'附件备份服务未配置');const {data:file,error}=await service.storage.from('knowledge-originals').download(asset.object_path);if(error||!file)throw new ApiError(503,'部分附件暂时无法备份，请稍后重试');attachments.push({bookmark_id:asset.bookmark_id,filename:asset.filename,media_type:asset.media_type,sha256:asset.sha256,data:Buffer.from(await file.arrayBuffer()).toString('base64')});}
+  const payload=JSON.stringify({format:'cheesecool-backup',version:1,exported_at:new Date().toISOString(),bookmarks,sources,derivations,attachments});
   if(Buffer.byteLength(payload)>10000000)throw new ApiError(413,'导出超过 10 MB，请分批备份');
-  const encoder=new TextEncoder();const stream=new ReadableStream({start(controller){for(let offset=0;offset<payload.length;offset+=32000)controller.enqueue(encoder.encode(payload.slice(offset,offset+32000)));controller.close();}});
+  const bytes=new TextEncoder().encode(payload);const stream=new ReadableStream({start(controller){for(let offset=0;offset<bytes.length;offset+=64000)controller.enqueue(bytes.subarray(offset,offset+64000));controller.close();}});
   return new Response(stream,{headers:{'Content-Type':'application/json; charset=utf-8','Content-Disposition':'attachment; filename="cheesecool-backup.json"','Cache-Control':'no-store'}});
  }
  if(params.get('id')){
   const id=bookmarkId(params.get('id'));
   const {data:bookmark,error}=await db.from('bookmarks').select('id,title,original_url,final_url,tags,notes,status,summary,ai_summary,source_hash,deleted_at').eq('id',id).maybeSingle();
   if(error)throw error;if(!bookmark)throw new ApiError(404,'收藏不存在');
-  const {data:sources}=await db.from('bookmark_sources').select('id,source_hash,source_url,media_type,truncated,captured_at,origin,extracted_content').eq('bookmark_id',id).order('captured_at',{ascending:false}).limit(20);
-  const {data:derivations}=await db.from('bookmark_derivations').select('id,source_hash,provider,model,prompt_version,summary,tags,evidence,created_at,origin').eq('bookmark_id',id).order('created_at',{ascending:false}).limit(20);
-  return Response.json({bookmark,sources,derivations},{headers:{'Cache-Control':'no-store'}});
+  const {data:sources}=await db.from('bookmark_sources').select('id,source_hash,source_url,media_type,truncated,captured_at,origin,extracted_content,metadata').eq('bookmark_id',id).order('captured_at',{ascending:false}).limit(20);
+  const {data:derivations}=await db.from('bookmark_derivations').select('id,source_hash,provider,model,prompt_version,summary,tags,evidence,created_at,origin,coverage').eq('bookmark_id',id).order('created_at',{ascending:false}).limit(20);
+  const {data:assets}=await db.from('bookmark_assets').select('id,filename,media_type,bytes').eq('bookmark_id',id);
+  return Response.json({bookmark,sources,derivations,assets},{headers:{'Cache-Control':'no-store'}});
  }
  const page=Math.max(0,Math.min(10000,Number(params.get('page'))||0));
  const query=db.from('bookmarks').select('id,title,original_url,tags,notes,status,deleted_at,created_at',{count:'exact'}).order('created_at',{ascending:false}).range(page*30,page*30+29);
@@ -39,6 +44,19 @@ export async function POST(request:Request){try{
  if(body.operation==='import'){
   const {data:allowed,error:quotaError}=await db.rpc('consume_knowledge_quota',{action_key:'import'});if(quotaError)throw quotaError;if(!allowed)throw new ApiError(429,'今日导入次数已达上限');
   const rows=body.bookmarks;if(!Array.isArray(rows)||rows.length>1)throw new ApiError(400,'每次请求可导入 1 条收藏，备份界面会自动分批');
+  const record=rows[0];
+  if(record&&['note','journal','ai_conversation','meeting','knowledge_note','document','audio','video'].includes(record.record_type)){
+   const content=typeof record.content==='string'?record.content:'';if(content.length>500000||(!content.trim()&&!['document','audio','video'].includes(record.record_type)))throw new ApiError(400,'记录备份缺少完整正文');
+   const hash=createHash('sha256').update(content).digest('hex');
+   const {data:existing}=await db.from('bookmarks').select('id').eq('record_type',record.record_type).eq('source_hash',hash).limit(1);
+   if(content&&existing?.length)return Response.json({ok:true,imported:0,duplicates:1,inserted:[]});
+   const snapshot=Array.isArray(body.sources)?body.sources.find((source:{extracted_content:string})=>source.extracted_content===content):null;
+   const {data:id,error}=await db.rpc('create_knowledge_record',{record_kind:record.record_type,record_title:String(record.title||'导入记录').slice(0,240),record_content:content,record_raw:typeof snapshot?.raw_content==='string'?snapshot.raw_content:content,record_attributes:{...(record.attributes&&typeof record.attributes==='object'?record.attributes:{}),imported_from:record.original_url}});
+   if(error)throw error;
+   const {error:notesError}=await db.from('bookmarks').update({notes:String(record.notes||'').slice(0,10000),tags:normalizeTags(record.tags),tags_edited_at:new Date().toISOString(),title_edited_at:new Date().toISOString()}).eq('id',id);if(notesError)throw notesError;
+   const service=serviceDatabase();if(service)await service.from('bookmark_sources').update({origin:'import'}).eq('bookmark_id',id).eq('user_id',user.id);
+   after(async()=>{await runKnowledgeJobs(user.id);});return Response.json({ok:true,imported:1,duplicates:0,inserted:[{id}]});
+  }
   const prepared=rows.map((row:Record<string,unknown>)=>{if(!row||typeof row!=='object')throw new ApiError(400,'收藏格式无效');let url:URL;try{url=pastedUrl(String(row.original_url||row.url||''));}catch{throw new ApiError(400,'导入包含无效链接，请检查后重试');}return {original_url:url.href,canonical_url:canonical(url),platform:identify(url),title:String(row.title||url.hostname).slice(0,240),tags:normalizeTags(row.tags),notes:String(row.notes||'').slice(0,10000),user_edited_at:new Date().toISOString(),...(Array.isArray(row.tags)?{tags_edited_at:new Date().toISOString()}:{}),...(row.title?{title_edited_at:new Date().toISOString()}: {})};});
   const {data,error}=await db.from('bookmarks').upsert(prepared,{onConflict:'user_id,canonical_url',ignoreDuplicates:true}).select('id,original_url');if(error)throw error;
   const service=serviceDatabase();if(!service)throw new ApiError(503,'导入服务未配置');
@@ -55,14 +73,14 @@ export async function POST(request:Request){try{
   after(async()=>{await runKnowledgeJobs(user.id);});return Response.json({ok:true,imported:data?.length||0,duplicates:rows.length-(data?.length||0),inserted:data});
  }
  const id=bookmarkId(body.id);
- const {data:owned,error:readError}=await db.from('bookmarks').select('id,deleted_at,original_url').eq('id',id).maybeSingle();
+ const {data:owned,error:readError}=await db.from('bookmarks').select('id,deleted_at,original_url,record_type').eq('id',id).maybeSingle();
  if(readError)throw readError;if(!owned)throw new ApiError(404,'收藏不存在');
  if(body.operation==='import_source'){
   const value=body.source;
   if(!value||typeof value.extracted_content!=='string'||typeof value.raw_content!=='string')throw new ApiError(400,'来源版本格式无效');
-  const content=value.extracted_content.slice(0,120000),hash=createHash('sha256').update(content).digest('hex');
+  const content=value.extracted_content.slice(0,500000),hash=createHash('sha256').update(content).digest('hex');
   const service=serviceDatabase();if(!service)throw new ApiError(503,'导入服务未配置');
-  const {error}=await service.from('bookmark_sources').upsert({user_id:user.id,bookmark_id:id,source_hash:hash,source_url:pastedUrl(String(value.source_url||owned.original_url)).href,raw_content:value.raw_content.slice(0,1000000),extracted_content:content,media_type:'text/plain',origin:'import',truncated:value.raw_content.length>1000000,...(typeof value.captured_at==='string'&&Number.isFinite(Date.parse(value.captured_at))?{captured_at:new Date(value.captured_at).toISOString()}:{})},{onConflict:'bookmark_id,source_hash',ignoreDuplicates:true});if(error)throw error;
+  const {error}=await service.from('bookmark_sources').upsert({user_id:user.id,bookmark_id:id,source_hash:hash,source_url:owned.record_type!=='web'?owned.original_url:pastedUrl(String(value.source_url||owned.original_url)).href,raw_content:value.raw_content.slice(0,1000000),extracted_content:content,media_type:'text/plain',origin:'import',metadata:value.metadata&&typeof value.metadata==='object'&&JSON.stringify(value.metadata).length<10000?value.metadata:{},truncated:value.raw_content.length>1000000,...(typeof value.captured_at==='string'&&Number.isFinite(Date.parse(value.captured_at))?{captured_at:new Date(value.captured_at).toISOString()}:{})},{onConflict:'bookmark_id,source_hash',ignoreDuplicates:true});if(error)throw error;
  }else if(body.operation==='import_derivation'){
   const value=body.derivation;if(!value||typeof value.summary!=='string'||typeof value.source_hash!=='string')throw new ApiError(400,'整理版本格式无效');
   const {data:source}=await db.from('bookmark_sources').select('extracted_content').eq('bookmark_id',id).eq('source_hash',value.source_hash).maybeSingle();
@@ -83,6 +101,7 @@ export async function POST(request:Request){try{
  }else if(body.operation==='retry'||body.operation==='recapture'){
   if(owned.deleted_at)throw new ApiError(400,'请先从回收站恢复收藏');
   if(body.operation==='recapture'){
+   if(owned.record_type!=='web')throw new ApiError(400,'这是一份受保护原件，修订请新建记录，不进行网页重新采集');
    const {data:job}=await db.from('bookmark_jobs').select('state,lease_until').eq('bookmark_id',id).maybeSingle();
    if(job?.state==='running'&&Date.parse(job.lease_until)>Date.now())throw new ApiError(409,'正在处理，请完成后再重新采集');
    const {error}=await db.from('bookmarks').update({status:'saved',content:null,source_hash:null,ai_summary:null,embedding:null}).eq('id',id);if(error)throw error;

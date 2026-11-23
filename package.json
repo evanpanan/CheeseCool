@@ -16,9 +16,11 @@
     "d3-force": "^3.0.1",
     "ipaddr.js": "^2.3.0",
     "jsdom": "26.1.0",
+    "mammoth": "1.13.0",
     "next": "^16.2.0",
     "react": "^19.2.0",
-    "react-dom": "^19.2.0"
+    "react-dom": "^19.2.0",
+    "unpdf": "2.2.2"
   },
   "devDependencies": {
     "@electric-sql/pglite": "^0.4.0",

@@ -100,5 +100,6 @@ export async function extract(input: URL) {
     } : null,
     final_url: url.href,
     platform,
+    completeness: ['douyin','xiaohongshu'].includes(platform)?'metadata_only':'article',
   };
 }

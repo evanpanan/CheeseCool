@@ -16,7 +16,7 @@ test('persistent jobs survive interruptions, isolate owners and retrieve origina
  const db=new PGlite({extensions:{vector}});const a='00000000-0000-0000-0000-000000000001',b='00000000-0000-0000-0000-000000000002';
  try{
  await db.exec(`create role authenticated;create role anon;create role service_role bypassrls;create schema auth;create table auth.users(id uuid primary key);create function auth.uid() returns uuid language sql stable as 'select nullif(current_setting(''request.jwt.claim.sub'',true),'''')::uuid';grant usage on schema auth to authenticated,service_role;insert into auth.users values('${a}'),('${b}');`);
- for(const file of ['001_second_brain','002_ai_settings','003_site_ai_settings','004_restrict_authenticated_privileges','005_bookmark_backfill','006_knowledge_backend','007_legacy_derivations','008_restore_jobs'])await db.exec(await readFile('supabase/migrations/'+file+'.sql','utf8'));
+ for(const file of ['001_second_brain','002_ai_settings','003_site_ai_settings','004_restrict_authenticated_privileges','005_bookmark_backfill','006_knowledge_backend','007_legacy_derivations','008_restore_jobs','009_knowledge_records'])await db.exec(await readFile('supabase/migrations/'+file+'.sql','utf8'));
  await db.exec(`set role authenticated;set request.jwt.claim.sub='${a}';`);
  const row=await db.query<{id:string}>("insert into public.bookmarks(original_url,canonical_url,platform,title) values('https://example.com','https://example.com','web','界面组件') returning id");const id=row.rows[0].id;
  assert.equal((await db.query('select * from public.bookmark_jobs')).rows.length,1,'job committed with bookmark');
@@ -56,4 +56,27 @@ test('answers expose only validated citations from retrieved sources',async()=>{
  assert.equal((await answerFromEvidence('问题',chunks,{provider:'deepseek',key:'test',model:'test'})).citations.length,1);
  invented=true;assert.equal((await answerFromEvidence('问题',chunks,{provider:'deepseek',key:'test',model:'test'})).citations.length,0);
  }finally{globalThis.fetch=original;}
+});
+
+
+test('typed records preserve complete originals and confirmed analysis publishes only once',async()=>{
+ const db=new PGlite({extensions:{vector}});const owner='00000000-0000-0000-0000-000000000011',other='00000000-0000-0000-0000-000000000012';
+ try{
+ await db.exec(`create role authenticated;create role anon;create role service_role bypassrls;create schema auth;create table auth.users(id uuid primary key);create function auth.uid() returns uuid language sql stable as 'select nullif(current_setting(''request.jwt.claim.sub'',true),'''')::uuid';grant usage on schema auth to authenticated,service_role;insert into auth.users values('${owner}'),('${other}');`);
+ for(const name of ['001_second_brain','002_ai_settings','003_site_ai_settings','004_restrict_authenticated_privileges','005_bookmark_backfill','006_knowledge_backend','007_legacy_derivations','008_restore_jobs','009_knowledge_records'])await db.exec(await readFile('supabase/migrations/'+name+'.sql','utf8'));
+ await db.exec(`set role authenticated;set request.jwt.claim.sub='${owner}';`);
+ const raw=JSON.stringify({messages:[{role:'user',content:'完整对话原稿中的一句话'},{role:'assistant',content:'完整回答，不能用摘要替代。'}]});
+ const row=await db.query<{id:string}>("select public.create_knowledge_record('ai_conversation','完整对话',$1,$2,'{}') as id",['完整对话原稿中的一句话',raw]);const id=row.rows[0].id;
+ assert.equal((await db.query<{raw_content:string}>('select raw_content from public.bookmark_sources')).rows[0].raw_content,raw);
+ const hash=(await db.query<{source_hash:string}>('select source_hash from public.bookmarks where id=$1',[id])).rows[0].source_hash;
+ await db.exec('reset role;set role service_role;');
+ const draft=await db.query<{id:string}>("insert into public.knowledge_insights(user_id,title,body,source_ids,provider,model,evidence,entities) values($1,'观点草稿','经过确认的观点',array[$2::uuid],'test','test',$3::jsonb,$4::jsonb) returning id",[owner,id,JSON.stringify([{source_id:id,source_hash:hash,quote:'完整对话原稿中的一句话'}]),JSON.stringify([{name:'原件保护',kind:'concept',description:'保存完整原件',source_id:id,quote:'完整对话原稿中的一句话'}])]);
+ await db.exec(`reset role;set role authenticated;set request.jwt.claim.sub='${other}';`);
+ assert.equal((await db.query<{id:string}>('select public.confirm_knowledge_insight($1) as id',[draft.rows[0].id])).rows[0].id,null);
+ await db.exec(`set request.jwt.claim.sub='${owner}';`);
+ assert.ok((await db.query<{id:string}>('select public.confirm_knowledge_insight($1) as id',[draft.rows[0].id])).rows[0].id);
+ assert.equal((await db.query<{id:string}>('select public.confirm_knowledge_insight($1) as id',[draft.rows[0].id])).rows[0].id,null);
+ assert.equal((await db.query('select * from public.knowledge_entities')).rows.length,1);
+ assert.equal((await db.query('select * from public.bookmarks')).rows.length,2);
+ }finally{await db.close();}
 });
