@@ -66,6 +66,18 @@ test('production migration isolates accounts, deduplicates links and indexes rel
     assert.equal((await db.query('select * from public.bookmark_edges')).rows.length, 0);
     assert.equal((await db.query("select * from public.search_bookmarks('知识库',$1)", [direction])).rows.length, 0);
     await insert('one', '独立的一条收藏', 'bob');
+    await db.exec('reset role');
+    await db.exec(await readFile('supabase/migrations/005_bookmark_backfill.sql', 'utf8'));
+    await db.exec(`set role authenticated; set request.jwt.claim.sub = '${alice}';`);
+    await db.exec("update public.bookmarks set status='extracted',content='existing article',ai_summary=null,created_at=now()-interval '1 hour';");
+    const claimed = await db.query<{id:string}>('select * from public.claim_bookmark_backfill(99,false)');
+    assert.equal(claimed.rows.length,3,'bounded backfill claims existing bookmarks');
+    assert.equal((await db.query('select * from public.claim_bookmark_backfill(3,false)')).rows.length,0,'refresh cannot repeat model calls during lease');
+    await db.exec(`set request.jwt.claim.sub = '${bob}';`);
+    assert.equal((await db.query('select * from public.claim_bookmark_backfill(3,false)')).rows.length,0,'another account cannot claim these bookmarks');
+    await db.exec('reset role; set role anon;');
+    await assert.rejects(db.query('select * from public.claim_bookmark_backfill(3,false)'), /permission denied/);
+
   } finally {
     await db.close();
   }
