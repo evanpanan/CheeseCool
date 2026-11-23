@@ -17,8 +17,8 @@ export async function POST(request:Request){
   if(result.error)throw new Error('Temporary test account unavailable');
   accounts.push(result.data.user.id);
   const client=createClient(config!.url,config!.key,{auth:{persistSession:false,autoRefreshToken:false}});
-  const verified=await client.auth.verifyOtp({type:'magiclink',token_hash:result.data.properties.hashed_token});
-  if(verified.error||!verified.data.session)throw new Error('Temporary test session unavailable');
+  const verified=await client.auth.verifyOtp({type:result.data.properties.verification_type==='signup'?'signup':'magiclink',token_hash:result.data.properties.hashed_token});
+  if(verified.error||!verified.data.session)throw new Error('Temporary test session unavailable: '+String(verified.error?.status)+' '+String(verified.error?.code));
   const value='base64-'+Buffer.from(JSON.stringify(verified.data.session)).toString('base64url');
   const name='sb-czinujtztqmtcddwyqgh-auth-token';
   const cookie=value.length<=3180?name+'='+value:Array.from({length:Math.ceil(value.length/3180)},(_,i)=>`${name}.${i}=${value.slice(i*3180,(i+1)*3180)}`).join('; ');
