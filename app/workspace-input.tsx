@@ -33,6 +33,7 @@ export function WorkspaceInput({ onResult }: { onResult: (result: WorkspaceResul
   const [focused, setFocused] = useState(false);
   const [hovered, setHovered] = useState(false);
   const [showResult, setShowResult] = useState(false);
+  const [feedbackLeaving, setFeedbackLeaving] = useState(false);
   const [state, action, pending] = useActionState(submitWithFeedback, {});
   const intent = workspaceIntent(value).kind;
   const error = showResult && !pending ? state.error : undefined;
@@ -60,6 +61,14 @@ export function WorkspaceInput({ onResult }: { onResult: (result: WorkspaceResul
     if (state.kind === 'save') setValue(current => current === submitted.current ? '' : current);
     onResult(state);
   }, [state, onResult]);
+
+  useEffect(() => {
+    setFeedbackLeaving(false);
+    if (!showResult || pending || !state.ok || state.kind !== 'save') return;
+    const fade = window.setTimeout(() => setFeedbackLeaving(true), 2300);
+    const dismiss = window.setTimeout(() => { setShowResult(false); setFeedbackLeaving(false); }, 2700);
+    return () => { window.clearTimeout(fade); window.clearTimeout(dismiss); };
+  }, [state, pending, showResult]);
 
   useEffect(() => {
     if (focused || hovered || pending || error) return;
@@ -144,7 +153,7 @@ export function WorkspaceInput({ onResult }: { onResult: (result: WorkspaceResul
         <Icon name="chevron" size={16}/>
       </button>
     </div>
-    <div className="capture-feedback" data-visible={Boolean(message)}>
+    <div className="capture-feedback" data-visible={Boolean(message)} data-leaving={feedbackLeaving}>
       <span id="capture-feedback" role="status" className={message?'capture-status':undefined}>{message && <AiSignal size={18} state={pending?'thinking':error?'error':saved?'done':'connected'}/>}<span>{message}</span></span>
     </div>
   </form>;
