@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useRef } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { orbitDocument } from '@/lib/orbit-document';
 import type { buildNetwork } from '@/lib/knowledge-network';
 
@@ -21,6 +21,9 @@ export function OrbitCanvas(props: Props) {
   latest.current = props;
   const document = useMemo(() => orbitDocument.replace('__PAYLOAD__',
     'window.__cheesecool=' + JSON.stringify(props.graph).replace(/</g, '\\u003c') + ';'), [props.graph]);
+  const currentDocument = useRef(document);
+  currentDocument.current = document;
+  const [paintedDocument, setPaintedDocument] = useState('');
 
   function synchronize() {
     const value = latest.current;
@@ -35,6 +38,7 @@ export function OrbitCanvas(props: Props) {
     function receive(event: MessageEvent) {
       if (event.source !== frame.current?.contentWindow) return;
       if (event.data?.type === 'cheesecool:ready') synchronize();
+      if (event.data?.type === 'cheesecool:painted') setPaintedDocument(currentDocument.current);
       if (event.data?.type === 'cheesecool:located' && latest.current.saved && event.data.id === latest.current.saved?.id && event.data.event === latest.current.saved.event) {
         locatedSave.current = `${event.data.id}:${event.data.event}`;
       }
@@ -47,5 +51,6 @@ export function OrbitCanvas(props: Props) {
 
   useEffect(synchronize, [props.night, props.query, props.paused, props.selected, props.saved]);
   return <iframe ref={frame} title="芝士库" className="orbit-library-frame"
+    style={{ visibility: paintedDocument === document ? 'visible' : 'hidden' }}
     sandbox="allow-scripts allow-popups allow-popups-to-escape-sandbox" srcDoc={document} onLoad={synchronize}/>;
 }
