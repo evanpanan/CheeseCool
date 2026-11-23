@@ -5,7 +5,6 @@ import { redirect } from 'next/navigation';
 import { after } from 'next/server';
 import { database } from '@/lib/supabase';
 import { canonical, identify, pastedUrl, webUrl } from '@/lib/urls';
-import { extract } from '@/lib/extract';
 import { embed, understand } from '@/lib/ai';
 import { siteAiConfig } from '@/lib/site-ai';
 
@@ -29,6 +28,7 @@ async function processBookmark(db: Client, id: string) {
   let source = row;
   if (!source.content || !source.source_hash) {
     const url = webUrl(row.original_url);
+    const { extract } = await import('@/lib/extract');
     const { data, final_url, platform } = await extract(url);
     const key = data ? canonical(webUrl(final_url)) : row.canonical_url;
     const { data: updated, error: updateError } = await db.from('bookmarks')
