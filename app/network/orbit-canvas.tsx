@@ -33,6 +33,7 @@ export function OrbitCanvas(props: Props) {
     function receive(event: MessageEvent) {
       if (event.source !== frame.current?.contentWindow) return;
       if (event.data?.type === 'cheesecool:ready') synchronize();
+      if (event.data?.type === 'cheesecool:interact') window.dispatchEvent(new Event('cheesecool:workspace-outside'));
       if (event.data?.type === 'cheesecool:select' && typeof event.data.id === 'string') latest.current.onSelect(event.data.id);
     }
     window.addEventListener('message', receive);

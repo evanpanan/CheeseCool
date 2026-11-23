@@ -38,6 +38,23 @@ export function WorkspaceInput({ onResult }: { onResult: (result: WorkspaceResul
   const error = showResult && !pending ? state.error : undefined;
 
   useEffect(() => {
+    const collapse=()=>{
+      const active=document.activeElement;
+      if(active instanceof HTMLElement && form.current?.contains(active))active.blur();
+      setFocused(false);setHovered(false);setExpanded(false);
+    };
+    const outside=(event:PointerEvent)=>{
+      if(event.target instanceof Node && !form.current?.contains(event.target))collapse();
+    };
+    document.addEventListener('pointerdown',outside,true);
+    window.addEventListener('cheesecool:workspace-outside',collapse);
+    return ()=>{
+      document.removeEventListener('pointerdown',outside,true);
+      window.removeEventListener('cheesecool:workspace-outside',collapse);
+    };
+  },[]);
+
+  useEffect(() => {
     inFlight.current = false;
     if (!state.ok || (state.kind === 'search' && discardSearch.current)) return;
     if (state.kind === 'save') setValue(current => current === submitted.current ? '' : current);
