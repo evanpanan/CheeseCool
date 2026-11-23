@@ -16,7 +16,7 @@ test('persistent jobs survive interruptions, isolate owners and retrieve origina
  const db=new PGlite({extensions:{vector}});const a='00000000-0000-0000-0000-000000000001',b='00000000-0000-0000-0000-000000000002';
  try{
  await db.exec(`create role authenticated;create role anon;create role service_role bypassrls;create schema auth;create table auth.users(id uuid primary key);create function auth.uid() returns uuid language sql stable as 'select nullif(current_setting(''request.jwt.claim.sub'',true),'''')::uuid';grant usage on schema auth to authenticated,service_role;insert into auth.users values('${a}'),('${b}');`);
- for(const file of ['001_second_brain','002_ai_settings','003_site_ai_settings','004_restrict_authenticated_privileges','005_bookmark_backfill','006_knowledge_backend'])await db.exec(await readFile('supabase/migrations/'+file+'.sql','utf8'));
+ for(const file of ['001_second_brain','002_ai_settings','003_site_ai_settings','004_restrict_authenticated_privileges','005_bookmark_backfill','006_knowledge_backend','007_legacy_derivations'])await db.exec(await readFile('supabase/migrations/'+file+'.sql','utf8'));
  await db.exec(`set role authenticated;set request.jwt.claim.sub='${a}';`);
  const row=await db.query<{id:string}>("insert into public.bookmarks(original_url,canonical_url,platform,title) values('https://example.com','https://example.com','web','界面组件') returning id");const id=row.rows[0].id;
  assert.equal((await db.query('select * from public.bookmark_jobs')).rows.length,1,'job committed with bookmark');

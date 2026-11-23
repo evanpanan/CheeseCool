@@ -12,7 +12,7 @@
 
 需要 Node.js 22.13+ 或 24，推荐使用 Node.js 24。
 
-1. 创建 Supabase 项目，在 SQL Editor 依次执行 [001 收藏与索引](supabase/migrations/001_second_brain.sql)、[002 旧版 AI 设置](supabase/migrations/002_ai_settings.sql) 、[003 站点 AI 设置](supabase/migrations/003_site_ai_settings.sql)，再按编号执行 004、005 和 [006 知识库后端](supabase/migrations/006_knowledge_backend.sql)。已有数据库只执行尚未执行的迁移。
+1. 创建 Supabase 项目，在 SQL Editor 依次执行 [001 收藏与索引](supabase/migrations/001_second_brain.sql)、[002 旧版 AI 设置](supabase/migrations/002_ai_settings.sql) 、[003 站点 AI 设置](supabase/migrations/003_site_ai_settings.sql)，再按编号执行 004、005 和 [006 知识库后端](supabase/migrations/006_knowledge_backend.sql)。再执行 007 补存历史整理结果。已有数据库只执行尚未执行的迁移。
 2. 在 Supabase **Authentication → Sign In / Providers** 关闭 Email、Phone 和 Anonymous 登录，只启用 Google 与 GitHub。首次第三方授权会自动建立账号，因此保留全局 Allow new users to sign up；关闭全局新用户会连同首次 OAuth 登录一起阻止。本站不提供邮箱密码注册或登录。
 3. 将 `.env.example` 复制为 `.env.local`。填入项目 URL 和 Publishable Key。旧项目也可通过 `NEXT_PUBLIC_SUPABASE_ANON_KEY` 使用 anon key；与 Publishable Key 二选一即可。普通收藏数据权限由用户会话和 RLS 控制。
 4. 安装、启动并打开 `http://localhost:3000`。
@@ -82,3 +82,5 @@ npm run build
 - 备份为用户下载的 JSON，不是异地自动灾备。单次最多 500 条收藏、1000 份来源、1000 个整理版本、10 MB；超限明确返回错误，不静默截断。导入逐条执行、自动跳过已有 URL，失败后已成功的条目会保留。手动备份包含原始资料，请自行妥善保管；不包含账号密钥或模型密钥。
 - 模型问答限制为每账号每小时 20 次，收藏每账号每天 200 次，导入每天 500 次。定时任务不会对已完成条目反复调用模型。
 - 安全与恢复测试：`npm test`；生产构建：`npm run build`。重点覆盖租约恢复、跨账号隔离、原件只读、回收站检索排除、模型引用校验和持久配额。
+
+Supabase 安全检查会提示两个已登录用户可调用的 SECURITY DEFINER RPC：配额函数只使用 auth.uid() 写固定配额，重试函数先核对 auth.uid() 与收藏所有权；均设置固定 search_path、拒绝匿名访问并有跨账号测试。这是有意的有限提权，未授予用户直接修改队列表或配额表的权限。[检查规则与说明](https://supabase.com/docs/guides/database/database-linter?lint=0029_authenticated_security_definer_function_executable)。仅服务端配置表与内部配额表无客户端策略是默认拒绝设计。
