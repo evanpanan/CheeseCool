@@ -14,7 +14,7 @@
 
 1. 创建 Supabase 项目，在 SQL Editor 依次执行 [001 收藏与索引](supabase/migrations/001_second_brain.sql)、[002 旧版 AI 设置](supabase/migrations/002_ai_settings.sql) 和 [003 站点 AI 设置](supabase/migrations/003_site_ai_settings.sql)。已运行过 002 的实例只需补跑 003。
 2. 在 Supabase **Authentication → Sign In / Providers** 关闭 Email、Phone 和 Anonymous 登录，只启用 Google 与 GitHub。首次第三方授权会自动建立账号，因此保留全局 Allow new users to sign up；关闭全局新用户会连同首次 OAuth 登录一起阻止。本站不提供邮箱密码注册或登录。
-3. 将 `.env.example` 复制为 `.env.local`。填入项目 URL 和 Publishable Key。旧项目也可使用 anon key。普通收藏数据权限由用户会话和 RLS 控制。
+3. 将 `.env.example` 复制为 `.env.local`。填入项目 URL 和 Publishable Key。旧项目也可通过 `NEXT_PUBLIC_SUPABASE_ANON_KEY` 使用 anon key；与 Publishable Key 二选一即可。普通收藏数据权限由用户会话和 RLS 控制。
 4. 安装、启动并打开 `http://localhost:3000`。
 
 ```sh
@@ -44,7 +44,7 @@ npm run dev
 
 将此项目导入 Vercel，选择 Next.js 项目和 Node.js 24。部署完整 Next.js 源码，不要使用导出的静态预览 HTML。页面、注册、登录和会话均由 Next.js 与 Supabase 处理。
 
-1. 完成上面的 Supabase 数据库迁移。在 Vercel **Settings → Environment Variables** 至少设置 `NEXT_PUBLIC_SUPABASE_URL`、`NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` 和 `NEXT_PUBLIC_SITE_URL`。最后一个填写当前部署的完整站点地址，例如 `https://your-app.vercel.app`，或正式自定义域名，不含路径。变量变更后重新部署。服务端 Secret Key 只用于管理员配置，不需要暴露给浏览器。
+1. 完成上面的 Supabase 数据库迁移。在 Vercel **Settings → Environment Variables** 至少设置 `NEXT_PUBLIC_SUPABASE_URL`、`NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` 和 `NEXT_PUBLIC_SITE_URL`。公开密钥也兼容 `NEXT_PUBLIC_SUPABASE_ANON_KEY`。添加到 Production 环境，并重新部署，已有部署不会自动读取新增变量。最后一个填写当前部署的完整站点地址，例如 `https://your-app.vercel.app`，或正式自定义域名，不含路径。变量变更后重新部署。服务端 Secret Key 只用于管理员配置，不需要暴露给浏览器。
 2. Supabase **Authentication → URL Configuration** 的 Site URL 填写同一站点地址。在 Redirect URLs 添加精确的 `https://你的域名/auth/callback`，本地开发可另加 `http://localhost:3000/auth/callback`。Vercel Preview 若需独立认证，为该环境分别设置自己的站点地址和回调白名单。
 3. 关闭 Supabase 的 Email、Phone 和 Anonymous Provider，只启用 Google 与 GitHub。不要全局关闭新用户创建，否则新的 Google/GitHub 用户也无法首次登录。应用的 `/auth/session` 只接受白名单内的 OAuth Provider 和退出操作，旧邮箱注册、密码登录接口已移除。
 4. Google Cloud Console 创建 **Web application** 类型的 OAuth Client。Authorized JavaScript origins 填写站点 origin。Authorized redirect URIs 填写 Supabase 提供的 `https://你的项目.supabase.co/auth/v1/callback`。将 Client ID 和 Client Secret 填入 Supabase **Authentication → Providers → Google** 并启用。Google 应用在 Testing 状态时需添加测试用户，对外开放时完成 Google 要求的发布配置。

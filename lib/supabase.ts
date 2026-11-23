@@ -2,11 +2,8 @@ import { createClient } from '@supabase/supabase-js';
 import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
 
-export function supabaseConfig() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const key = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
-  return url && key ? { url, key } : null;
-}
+import {supabaseConfig} from './supabase-config';
+export {supabaseConfig} from './supabase-config';
 
 export async function database() {
   const config = supabaseConfig();

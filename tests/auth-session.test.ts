@@ -19,7 +19,8 @@ test('unknown account operations are rejected',async()=>{
 test('missing account configuration returns recoverable errors without a session',async()=>{
   const url=process.env.NEXT_PUBLIC_SUPABASE_URL;
   const key=process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
-  delete process.env.NEXT_PUBLIC_SUPABASE_URL;delete process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
+  const anon=process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  delete process.env.NEXT_PUBLIC_SUPABASE_URL;delete process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;delete process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
   try {
     for(const operation of ['oauth','logout']) {
       const result=await (await POST(request(operation))).json();
@@ -31,6 +32,7 @@ test('missing account configuration returns recoverable errors without a session
   } finally {
     if(url!==undefined)process.env.NEXT_PUBLIC_SUPABASE_URL=url;
     if(key!==undefined)process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=key;
+    if(anon!==undefined)process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY=anon;
   }
 });
 
