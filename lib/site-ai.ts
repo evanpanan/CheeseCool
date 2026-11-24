@@ -1,5 +1,6 @@
 import { serviceDatabase } from './supabase';
 import { resolveAi, type AiSettings } from './ai-settings';
+import {resolveCapabilities,type CapabilitySettings} from './capability-services';
 
 export async function readSiteAiSettings(db: NonNullable<ReturnType<typeof serviceDatabase>>) {
   const { data, error } = await db.from('site_ai_settings')
@@ -9,8 +10,10 @@ export async function readSiteAiSettings(db: NonNullable<ReturnType<typeof servi
 
 export async function siteAiConfig() {
   const db = serviceDatabase();
-  if (!db) return resolveAi(null);
+  if (!db) {const ai=resolveAi(null);return {...ai,...resolveCapabilities(null,ai)};}
   const { settings, error } = await readSiteAiSettings(db);
   if (error && !['PGRST205', '42P01'].includes(error.code)) throw error;
-  return resolveAi(settings);
+  const {data:capabilities,error:capError}=await db.from('site_capability_settings').select('*').eq('id',true).maybeSingle();
+  if(capError&&!['PGRST205','42P01'].includes(capError.code))throw capError;
+  const ai=resolveAi(settings);return {...ai,...resolveCapabilities(capabilities as CapabilitySettings|null,ai)};
 }

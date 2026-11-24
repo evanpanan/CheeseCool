@@ -1,6 +1,7 @@
 'use client';
 import {useEffect,useState} from 'react';
 import Link from 'next/link';
+import {UploadOriginal} from './upload-original';
 type RecordRow={id:string;title:string};
 type Insight={id:string;title:string;body:string;state:string;published_bookmark_id:string|null;evidence:{source_id:string;source_hash:string;quote:string}[];entities:{name:string;kind:string;description:string}[]};
 type Entity={origin?:string;id:string;name:string;kind:string;description:string};
@@ -20,7 +21,7 @@ export function KnowledgeStudio({records,onSaved}:{records:RecordRow[];onSaved:(
    <label>完整原文<textarea value={content} onChange={e=>setContent(e.target.value)} rows={8} maxLength={500000} required placeholder={kind==='ai_conversation'?'粘贴完整对话，保留角色、顺序和原文':'粘贴原文；整理结果将另存，不覆盖原稿'}/></label>
    <button disabled={busy||!content.trim()}>保存原件</button>
   </form></section>
-  <section className="km-ask"><h2>导入文档与音视频原件</h2><p className="km-notice">PDF、DOCX、文本、Markdown、CSV、JSON；音视频文件可保留原件并接入转写。单文件最多 3 MB，扫描 PDF 需要 OCR 服务。</p><input type="file" accept=".pdf,.docx,.txt,.md,.csv,.json,.mp3,.wav,.m4a,.ogg,.flac,.mp4,.webm" disabled={busy} onChange={e=>{const file=e.target.files?.[0];e.target.value='';if(file)void run(async()=>{if(file.size>3000000)throw new Error('单个文件最多 3 MB');const form=new FormData();form.set('file',file);await fetch('/api/assets',{method:'POST',body:form}).then(read);setNotice('原件已保存，可在处理任务中查看解析或转写进度');});}}/></section>
+  <UploadOriginal onSaved={onSaved}/><section className="km-ask"><h2>采集浏览器正文</h2><p className="km-notice">在桌面 Chrome 安装扩展，主动采集自己已能阅读的页面，再确认保存。不会上传 Cookie 或密码。</p><a href="/cheesecool-capture-extension.zip" download>下载浏览器扩展与安装说明</a></section>
   <section className="km-ask"><h2>跨材料分析</h2><p className="km-notice">选择 1 至 6 份材料。先生成有来源的候选观点，再由你确认是否沉淀为知识。</p><form onSubmit={e=>{e.preventDefault();void run(async()=>{await fetch('/api/insights',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({operation:'analyze',ids:selected,question})}).then(read);setNotice('分析草稿已生成，请核对后确认');});}}>
    <fieldset className="km-source-picker"><legend>当前列表的材料</legend>{records.map(record=><label key={record.id}><input type="checkbox" checked={selected.includes(record.id)} disabled={busy||(!selected.includes(record.id)&&selected.length>=6)} onChange={e=>setSelected(ids=>e.target.checked?[...ids,record.id]:ids.filter(id=>id!==record.id))}/>{record.title}</label>)}</fieldset>
    <label>分析方向<input value={question} onChange={e=>setQuestion(e.target.value)} maxLength={500} placeholder="提炼共识、差异与可复用观点"/></label><button disabled={busy||!selected.length}>{busy?'正在处理…':'生成分析草稿'}</button>

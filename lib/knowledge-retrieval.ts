@@ -26,8 +26,8 @@ export function rerankEvidence(question:string,candidates:RetrievalCandidate[],l
  }
  return selected;
 }
-export async function retrieveEvidence(db:Awaited<ReturnType<typeof database>>,question:string,vector:number[]|null){
- const {data,error}=await db.rpc('hybrid_knowledge_candidates',{query_text:expandRetrievalQuery(question),query_embedding:vector?JSON.stringify(vector):null});
+export async function retrieveEvidence(db:Awaited<ReturnType<typeof database>>,question:string,vector:number[]|null,space='openai:text-embedding-3-small:1536'){
+ const {data,error}=await db.rpc('hybrid_knowledge_candidates_v2',{query_text:expandRetrievalQuery(question),query_embedding:vector?JSON.stringify(vector):null,query_space:space});
  if(error)throw error;
  const candidates=(data||[]) as RetrievalCandidate[];
  const sources=rerankEvidence(question,candidates);

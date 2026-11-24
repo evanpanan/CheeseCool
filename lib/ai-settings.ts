@@ -19,7 +19,7 @@ export function encryptionKey() {
   return /^[a-f\d]{64}$/i.test(hex) ? Buffer.from(hex, 'hex') : null;
 }
 
-export function encryptKey(secret: string, key: Buffer, provider: Provider) {
+export function encryptKey(secret: string, key: Buffer, provider: Provider | 'aliyun-services') {
   const iv = randomBytes(12);
   const cipher = createCipheriv('aes-256-gcm', key, iv);
   cipher.setAAD(Buffer.from(siteScope + ':' + provider));

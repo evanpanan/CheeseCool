@@ -8,8 +8,8 @@ import './settings.css';
 
 type Option = { id: string; name: string; model: string; saved: boolean; deploymentKey: boolean };
 
-export function SettingsForm({ options, initialProvider, initialModel, canEncrypt }: {
-  options: Option[]; initialProvider: string; initialModel: string; canEncrypt: boolean;
+export function SettingsForm({ options, initialProvider, initialModel, canEncrypt, semanticConfigured }: {
+  options: Option[]; initialProvider: string; initialModel: string; canEncrypt: boolean; semanticConfigured?:boolean;
 }) {
   const [state, action, pending] = useActionState(saveAiSettings, {});
   const [provider, setProvider] = useState(initialProvider);
@@ -20,7 +20,7 @@ export function SettingsForm({ options, initialProvider, initialModel, canEncryp
   const [visibleKeys, setVisibleKeys] = useState<Record<string, boolean>>({});
   const selected = options.find(option => option.id === provider);
   const chatConfigured=Boolean(selected?.saved || selected?.deploymentKey);
-  const vectorConfigured=options.some(option=>option.id==='openai' && (option.saved || option.deploymentKey));
+  const vectorConfigured=semanticConfigured??false;
 
   useEffect(() => {
     if (state.message && !state.error) {
@@ -84,7 +84,7 @@ export function SettingsForm({ options, initialProvider, initialModel, canEncryp
           <p className="admin-private-note"><Icon name="lock" size={14}/>仅在服务端使用</p>
         </div>
         <div className="admin-card admin-keys-card">
-          <p className="admin-key-help">OpenAI 同时提供语义搜索与关联所需的向量服务。</p>
+          <p className="admin-key-help">整理服务与下方的识别、转写及向量服务分别配置。</p>
           {!canEncrypt && <p className="admin-config-notice">
             录入密钥前，请在部署环境设置 <code>AI_SETTINGS_ENCRYPTION_KEY</code>，或直接使用环境变量配置密钥。
           </p>}

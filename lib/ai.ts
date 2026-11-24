@@ -1,7 +1,12 @@
 import { normalizeTags, validEvidence } from './knowledge-content';
 import { providers, type Provider } from './ai-settings';
 
+import type {EmbeddingService} from './capability-services';
 const embeddingModel = 'text-embedding-3-small';
+async function embeddingRequest(input:string|string[],config:string|EmbeddingService){
+ const service=typeof config==='string'?{endpoint:'https://api.openai.com/v1/embeddings',key:config,model:embeddingModel}:config;
+ const response=await fetch(service.endpoint,{method:'POST',headers:{Authorization:'Bearer '+service.key,'Content-Type':'application/json'},body:JSON.stringify({model:service.model,input,dimensions:1536}),cache:'no-store',redirect:'error',signal:AbortSignal.timeout(15000)});if(!response.ok)throw new Error('向量服务暂不可用');return response.json();
+}
 
 async function requestAi(provider: Provider, key: string, path: string, body: object, timeout=12000): Promise<unknown> {
   const response = await fetch(providers[provider].endpoint + path, {
@@ -16,8 +21,8 @@ async function requestAi(provider: Provider, key: string, path: string, body: ob
   return response.json();
 }
 
-export async function embed(input: string, key: string) {
-  const result = await requestAi('openai', key, 'embeddings', { model: embeddingModel, input, dimensions: 1536 }) as {
+export async function embed(input: string, key: string|EmbeddingService) {
+  const result = await embeddingRequest(input,key) as {
     data?: { embedding?: unknown }[];
   };
   const vector = result.data?.[0]?.embedding;
@@ -71,8 +76,8 @@ export async function answerFromEvidence(question:string,chunks:EvidenceChunk[],
  return {answer:parsed.answer.slice(0,2400),citations};
 }
 
-export async function embedMany(inputs:string[],key:string){
- const result=await requestAi('openai',key,'embeddings',{model:embeddingModel,input:inputs,dimensions:1536}) as {data?:{index:number;embedding:unknown}[]};
+export async function embedMany(inputs:string[],key:string|EmbeddingService){
+ const result=await embeddingRequest(inputs,key) as {data?:{index:number;embedding:unknown}[]};
  if(!Array.isArray(result.data)||result.data.length!==inputs.length)throw new Error('向量批次不完整');
  const sorted=[...result.data].sort((a,b)=>a.index-b.index);
  return sorted.map((entry,index)=>{const v=entry.embedding;if(entry.index!==index||!Array.isArray(v)||v.length!==1536||!v.every(n=>typeof n==='number'&&Number.isFinite(n))||!v.some(n=>n!==0))throw new Error('向量格式无效');return v as number[];});

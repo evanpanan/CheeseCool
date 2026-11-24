@@ -1,6 +1,6 @@
 import { timingSafeEqual } from 'node:crypto';
 import { runKnowledgeJobs } from '@/lib/knowledge-jobs';
-export const maxDuration=60;
+export const maxDuration=240;
 export const dynamic='force-dynamic';
 export async function GET(request:Request){
  const secret=process.env.CRON_SECRET;

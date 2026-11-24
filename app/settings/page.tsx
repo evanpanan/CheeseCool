@@ -3,9 +3,12 @@ import { database, serviceDatabase, supabaseConfig } from '@/lib/supabase';
 import { defaultAiProvider, encryptionKey, providerIds, providers } from '@/lib/ai-settings';
 import { WorkspaceHeader } from '../workspace-header';
 import { isAiAdmin } from '@/lib/ai-admin';
-import { readSiteAiSettings } from '@/lib/site-ai';
+import { readSiteAiSettings,siteAiConfig } from '@/lib/site-ai';
 import { SettingsForm } from './settings-form';
 import { SettingsHeading } from './settings-heading';
+import {CapabilityForm} from './capability-form';
+import {ServiceHealthPanel} from './service-health-panel';
+import {OperationalStats} from '@/app/manage/operational-stats';
 
 export const metadata = { title: '站点管理',robots:{index:false,follow:false} };
 export const dynamic = 'force-dynamic';
@@ -20,6 +23,7 @@ export default async function SettingsPage() {
   const { settings, error } = service ? await readSiteAiSettings(service) : {
     settings: null, error: null,
   };
+  const capabilities=await siteAiConfig().catch(()=>null);
   return <>
     <WorkspaceHeader account={{ email: user.email, avatarUrl: user.user_metadata?.avatar_url || user.user_metadata?.picture, displayName: user.user_metadata?.full_name || user.user_metadata?.name, showAdmin: true, adminPage: true }}/>
     <main className="frame settings-page">
@@ -27,10 +31,11 @@ export default async function SettingsPage() {
       {!service ? <p>要在这里管理站点配置，请先设置服务端 Supabase 密钥。现有部署环境中的模型配置会继续生效。</p> :
         error ? <p className="error" role="alert">暂时无法读取模型配置。请确认数据库已执行 003 迁移。</p> :
         <SettingsForm initialProvider={settings?.provider ?? defaultAiProvider()} initialModel={settings?.model ?? ''}
-          canEncrypt={Boolean(encryptionKey())} options={providerIds.map(id => ({
+          canEncrypt={Boolean(encryptionKey())} semanticConfigured={Boolean(capabilities?.embedding)} options={providerIds.map(id => ({
             id, name: providers[id].name, model: process.env[providers[id].modelEnv] || providers[id].model,
             saved: Boolean(settings?.[`${id}_key`]), deploymentKey: Boolean(process.env[providers[id].keyEnv]),
           }))}/>}
+      {service&&<><CapabilityForm/><ServiceHealthPanel/><OperationalStats site/></>}
     </main>
   </>;
 }

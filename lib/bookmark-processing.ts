@@ -19,7 +19,7 @@ export async function processBookmark(db:Client,id:string,onStage:(stage:string)
   try{result=await extractAsset(db,id,row.user_id,source.record_type);}catch(error){if(error instanceof AssetError){if(error.waiting){await db.from('bookmarks').update({attributes:{...source.attributes,processing_wait:error.code}}).eq('id',id).eq('user_id',row.user_id);return {waiting:true,reason:error.code};}throw new ProcessingError(error.code,error.message,!['document_parse','asr_empty','ocr_empty','ocr_too_large'].includes(error.code));}throw error;}
   if(result.text.length>500000)throw new ProcessingError('document_too_large','原件已保留，正文超过单条 50 万字符上限，请拆分处理',false);
   const hash=createHash('sha256').update(result.text).digest('hex');
-  const {data:updated,error:updateError}=await db.from('bookmarks').update({content:result.text,source_hash:hash,status:'extracted',attributes:{...source.attributes,extraction_method:result.method,processing_wait:null}}).eq('id',id).eq('user_id',row.user_id).is('deleted_at',null).select('*').single();
+  const {data:updated,error:updateError}=await db.from('bookmarks').update({content:result.text,source_hash:hash,status:'extracted',attributes:{...source.attributes,...('attributes' in result?result.attributes:{}),extraction_method:result.method,processing_wait:null}}).eq('id',id).eq('user_id',row.user_id).is('deleted_at',null).select('*').single();
   if(updateError)throw new ProcessingError('extract_write','原件已保存，提取文本保存失败');source=updated;
  }
  if(!source.content||!source.source_hash){
@@ -46,7 +46,7 @@ export async function processBookmark(db:Client,id:string,onStage:(stage:string)
   if(chunkError)throw new ProcessingError('chunk_write','正文分段索引失败');
  }
  await onStage('organize');
- const {chat,embeddingKey}=await siteAiConfig();
+ const {chat,embedding:embeddingKey}=await siteAiConfig();
  if(!source.ai_summary&&!chat)return {waiting:true,reason:'model_unconfigured'};
  if(!source.ai_summary&&chat){
   let ai;
@@ -81,18 +81,18 @@ export async function processBookmark(db:Client,id:string,onStage:(stage:string)
  const {error:tagError}=await db.rpc('refresh_tag_edges',{owner_id:row.user_id});
  if(tagError)throw new ProcessingError('relations_write','标签关联保存失败');
  await onStage('index');
- if(embeddingKey&&!source.embedding){
+ if(embeddingKey&&(!source.embedding||source.embedding_space!==embeddingKey.space)){
   let vector;
   try{vector=await embed([source.title,source.ai_summary,source.tags.join(' '),source.content.slice(0,4500)].join('\n'),embeddingKey);}catch{throw new ProcessingError('embedding_unavailable','摘要已完成，语义索引服务暂不可用');}
-  const {error:indexError}=await db.rpc('index_owned_bookmark',{bookmark_id:id,expected_hash:source.source_hash,new_embedding:JSON.stringify(vector)});
+  const {error:indexError}=await db.rpc('index_owned_bookmark_v2',{bookmark_id:id,expected_hash:source.source_hash,new_embedding:JSON.stringify(vector),new_space:embeddingKey.space});
   if(indexError)throw new ProcessingError('index_write','语义关联保存失败');
  }
  if(embeddingKey){
-  const {data:pendingChunks,error:pendingError}=await db.from('bookmark_chunks').select('id,content').eq('bookmark_id',id).eq('source_hash',source.source_hash).is('embedding',null).order('ordinal').limit(8);
+  const {data:pendingChunks,error:pendingError}=await db.from('bookmark_chunks').select('id,content').eq('bookmark_id',id).eq('source_hash',source.source_hash).or('embedding.is.null,embedding_space.neq.'+embeddingKey.space).order('ordinal').limit(8);
   if(pendingError)throw new ProcessingError('chunk_read','正文索引读取失败');
   if(pendingChunks?.length){
    let vectors;try{vectors=await embedMany(pendingChunks.map(c=>c.content),embeddingKey);}catch{throw new ProcessingError('embedding_unavailable','摘要已完成，正文语义索引暂不可用');}
-   await Promise.all(pendingChunks.map(async(chunk,i)=>{const {error}=await db.from('bookmark_chunks').update({embedding:JSON.stringify(vectors[i])}).eq('id',chunk.id).eq('source_hash',source.source_hash);if(error)throw new ProcessingError('index_write','正文索引保存失败');}));
+   await Promise.all(pendingChunks.map(async(chunk,i)=>{const {error}=await db.from('bookmark_chunks').update({embedding:JSON.stringify(vectors[i]),embedding_space:embeddingKey.space}).eq('id',chunk.id).eq('source_hash',source.source_hash);if(error)throw new ProcessingError('index_write','正文索引保存失败');}));
    if(pendingChunks.length===8)return {waiting:true,reason:'index_pending'};
   }
  }

@@ -1,0 +1,9 @@
+{
+ "manifest_version":3,"name":"CheeseCool 收藏正文","version":"1.0.0",
+ "description":"由你主动采集当前可阅读的网页正文，确认后保存到自己的芝士库。",
+ "permissions":["activeTab","scripting","storage"],
+ "host_permissions":["https://cheese-cool.vercel.app/*"],
+ "action":{"default_title":"收藏当前页面到 CheeseCool"},
+ "background":{"service_worker":"background.js"},
+ "content_scripts":[{"matches":["https://cheese-cool.vercel.app/capture/import*"],"js":["handoff.js"],"run_at":"document_idle"}]
+}

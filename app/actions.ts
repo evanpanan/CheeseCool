@@ -88,9 +88,9 @@ export async function submitWorkspace(_state: WorkspaceResult, form: FormData): 
   if (!query || query.length > 240) return { kind: 'search', error: '搜索内容请控制在 240 字以内。' };
   const db = await authenticated();
   const config = await siteAiConfig().catch(() => null);
-  const vector = config?.embeddingKey ? await embed(query, config.embeddingKey).catch(() => null) : null;
-  const { data, error } = await db.rpc('search_bookmarks', {
-    query_text: expandRetrievalQuery(query), query_embedding: vector ? JSON.stringify(vector) : null,
+  const vector = config?.embedding ? await embed(query, config.embedding).catch(() => null) : null;
+  const { data, error } = await db.rpc('search_bookmarks_v2', {
+    query_text: expandRetrievalQuery(query), query_embedding: vector ? JSON.stringify(vector) : null, query_space:config?.embedding?.space||'openai:text-embedding-3-small:1536',
   });
   if (error) return { kind: 'search', error: '这次没能完成搜索，请稍后再试。' };
   const ids = (data ?? []).map((item: { id: string }) => item.id);

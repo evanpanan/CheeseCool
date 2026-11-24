@@ -18,14 +18,14 @@ export async function BookmarkCollection({ db, params }: {
   const start = (page - 1) * 24;
   const aiConfig = await siteAiConfig().catch(() => null);
   const ai = Boolean(aiConfig?.chat);
-  const embeddingKey = aiConfig?.embeddingKey;
+  const embeddingKey = aiConfig?.embedding;
   let ids: string[] | undefined;
   let searchError = false;
   let vector: number[] | null = null;
   if (q) {
     vector = embeddingKey ? await embed(q, embeddingKey).catch(() => null) : null;
-    const { data, error } = await db.rpc('search_bookmarks', {
-      query_text: retrievalQuery(q), query_embedding: vector ? JSON.stringify(vector) : null,
+    const { data, error } = await db.rpc('search_bookmarks_v2', {
+      query_text: retrievalQuery(q), query_embedding: vector ? JSON.stringify(vector) : null,query_space:embeddingKey?.space||'openai:text-embedding-3-small:1536',
     });
     searchError = !!error;
     ids = (data ?? []).map((row: { id: string }) => row.id);

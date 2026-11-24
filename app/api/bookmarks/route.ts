@@ -1,3 +1,4 @@
+import {readOriginalBuffer,type OriginalAsset} from '@/lib/original-files';
 import { revalidatePath } from 'next/cache';
 import { createHash } from 'node:crypto';
 import { after } from 'next/server';
@@ -19,7 +20,7 @@ export async function GET(request:Request){try{
   const {data:assets,error:assetsError}=await db.from('bookmark_assets').select('*').order('id').limit(101);if(assetsError)throw assetsError;
   if((assets?.length||0)>100||(assets||[]).reduce((n,a)=>n+a.bytes,0)>6000000)throw new ApiError(413,'附件超过单次备份 6 MB 或 100 个上限，请分批备份');
   const service=serviceDatabase();const attachments=[];
-  for(const asset of assets||[]){if(!service)throw new ApiError(503,'附件备份服务未配置');const {data:file,error}=await service.storage.from('knowledge-originals').download(asset.object_path);if(error||!file)throw new ApiError(503,'部分附件暂时无法备份，请稍后重试');attachments.push({bookmark_id:asset.bookmark_id,filename:asset.filename,media_type:asset.media_type,sha256:asset.sha256,data:Buffer.from(await file.arrayBuffer()).toString('base64')});}
+  for(const asset of assets||[]){if(!service)throw new ApiError(503,'附件备份服务未配置');attachments.push({bookmark_id:asset.bookmark_id,filename:asset.filename,media_type:asset.media_type,sha256:asset.sha256,integrity_kind:asset.integrity_kind,data:(await readOriginalBuffer(asset as OriginalAsset)).toString('base64')});}
   const [{data:insights,error:insightError},{data:entities,error:entityError}]=await Promise.all([db.from('knowledge_insights').select('*').order('id').limit(501),db.from('knowledge_entities').select('*').order('id').limit(1001)]);
   if(insightError||entityError)throw insightError||entityError;if((insights?.length||0)>500||(entities?.length||0)>1000)throw new ApiError(413,'分析或实体档案超过单次备份上限');
   const payload=JSON.stringify({format:'cheesecool-backup',version:1,exported_at:new Date().toISOString(),bookmarks,sources,derivations,attachments,insights,entities});

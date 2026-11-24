@@ -1,0 +1,10 @@
+'use client';
+import {useEffect,useState} from 'react';
+import Link from 'next/link';
+type Capture={url:string;title:string;content:string;html:string};
+export function CaptureImport({signedIn}:{signedIn:boolean}){
+ const [capture,setCapture]=useState<Capture|null>(null),[busy,setBusy]=useState(false),[error,setError]=useState(''),[saved,setSaved]=useState(false);
+ useEffect(()=>{const id=new URL(location.href).searchParams.get('handoff');function receive(event:MessageEvent){if(event.source!==window||event.origin!==location.origin||event.data?.type!=='cheesecool:browser-capture'||event.data.id!==id)return;const value=event.data.payload;if(value&&typeof value.content==='string'&&typeof value.url==='string'&&value.content.length<=500000)setCapture({url:value.url,title:String(value.title||''),content:value.content,html:typeof value.html==='string'?value.html:''});}window.addEventListener('message',receive);window.postMessage({type:'cheesecool:request-capture',id},location.origin);return()=>window.removeEventListener('message',receive);},[]);
+ async function save(){if(!capture)return;setBusy(true);setError('');try{const response=await fetch('/api/capture',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(capture)}),data=await response.json();if(!response.ok)throw new Error(data.error||'保存未完成');setSaved(true);}catch(e){setError(e instanceof Error?e.message:'保存未完成');}finally{setBusy(false);}}
+ return <section className="km-ask"><h1>确认采集内容</h1>{!signedIn&&<p>请先在新标签页<Link href="/login" target="_blank">登录 CheeseCool</Link>，再刷新此页。</p>}{capture?<><h2>{capture.title}</h2><p style={{overflowWrap:'anywhere'}}>{capture.url}</p><textarea aria-label="采集的原文预览" readOnly value={capture.content} rows={14} style={{width:'100%'}}/><p>采集范围是此刻浏览器能读取的正文，不包含 Cookie 或密码。</p>{error&&<p className="error" role="alert">{error}</p>}{saved?<p role="status">已保存到芝士库。<Link href="/">返回芝士库</Link></p>:<button disabled={busy||!signedIn} onClick={()=>void save()}>{busy?'正在保存…':'确认保存原文'}</button>}</>:<p>等待浏览器扩展传入正文。请从要收藏的网页点击 CheeseCool 扩展图标。</p>}</section>;
+}

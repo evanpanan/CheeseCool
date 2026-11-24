@@ -35,10 +35,10 @@ export async function GraphView({ db, userId }: {
   }));
   const edges = results.flatMap(result => result.edges);
   const aiConfig = await siteAiConfig().catch(() => null);
-  const backfilling = aiConfig?.chat ? await scheduleBookmarkBackfill(db, Boolean(aiConfig.embeddingKey)).catch(() => false) : false;
+  const backfilling = aiConfig?.chat ? await scheduleBookmarkBackfill(db, Boolean(aiConfig.embedding)).catch(() => false) : false;
   const relationMessage = !aiConfig?.chat
     ? '智能整理服务尚未就绪，关联分析暂不可用。'
-    : !aiConfig.embeddingKey ? '当前按共同标签发现关联；语义关联服务尚未启用。' : undefined;
+    : !aiConfig.embedding ? '当前按共同标签发现关联；语义关联服务尚未启用。' : undefined;
   const refreshUntil = Math.max(0, ...bookmarks.filter(item => item.status === 'saved' || item.status === 'extracted')
     .map(item => Math.max(Date.parse(item.created_at), item.processing_attempted_at ? Date.parse(item.processing_attempted_at) : 0) + 65_000));
 

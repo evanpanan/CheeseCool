@@ -3,11 +3,12 @@ import {after} from 'next/server';
 import {apiUser,apiFailure,bookmarkId,ApiError} from '@/lib/knowledge-api';
 import {serviceDatabase} from '@/lib/supabase';
 import {runKnowledgeJobs} from '@/lib/knowledge-jobs';
-export const maxDuration=60;
+import {originalResponse,type OriginalAsset} from '@/lib/original-files';
+export const maxDuration=240;
 export async function POST(request:Request){try{
  const {db,user}=await apiUser(request,true);if(Number(request.headers.get('content-length')||0)>3200000)throw new ApiError(413,'单个文件最多 3 MB');
  const form=await request.formData(),file=form.get('file');if(!(file instanceof File)||!file.size||file.size>3000000)throw new ApiError(400,'请选择 3 MB 以内的文件');
- const ext=file.name.split('.').pop()?.toLowerCase()||'',audio=['mp3','wav','m4a','ogg','flac'],video=['mp4','webm'];
+ const ext=file.name.split('.').pop()?.toLowerCase()||'',audio=['mp3','wav','m4a','ogg','flac','aac','opus','mpga'],video=['mp4','webm','mov','mkv','mpeg','mpg'];
  if(!['pdf','docx','txt','md','csv','json',...audio,...video].includes(ext))throw new ApiError(400,'暂不支持此文件格式');
  const service=serviceDatabase();if(!service)throw new ApiError(503,'文件服务未配置');
  const kind=audio.includes(ext)?'audio':video.includes(ext)?'video':'document';
@@ -30,6 +31,5 @@ export async function GET(request:Request){try{
  const {db}=await apiUser(request),id=bookmarkId(new URL(request.url).searchParams.get('id'));
  const {data:asset,error}=await db.from('bookmark_assets').select('*').eq('id',id).maybeSingle();if(error)throw error;if(!asset)throw new ApiError(404,'原始文件不存在');
  const {data:record}=await db.from('bookmarks').select('id').eq('id',asset.bookmark_id).is('deleted_at',null).maybeSingle();if(!record)throw new ApiError(404,'文件已移入回收站');
- const service=serviceDatabase();if(!service)throw new ApiError(503,'文件服务未配置');const {data:file,error:downloadError}=await service.storage.from('knowledge-originals').download(asset.object_path);if(downloadError||!file)throw new ApiError(503,'原件暂时无法下载');
- return new Response(file,{headers:{'Content-Type':'application/octet-stream','Content-Disposition':`attachment; filename="cheesecool-original"; filename*=UTF-8''${encodeURIComponent(asset.filename)}`,'Cache-Control':'no-store','X-Content-Type-Options':'nosniff'}});
+ try{return await originalResponse(asset as OriginalAsset,request.headers.get('range'));}catch{throw new ApiError(416,'文件范围无效');}
  }catch(e){return apiFailure(e);}}
