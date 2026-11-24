@@ -50,7 +50,7 @@ test('persistent jobs survive interruptions, isolate owners and retrieve origina
 
 test('answers expose only validated citations from retrieved sources',async()=>{
  const original=globalThis.fetch;let invented=false;
- globalThis.fetch=async()=>Response.json({choices:[{message:{content:JSON.stringify({answer:'根据原文的回答',citations:[{chunk_id:invented?'foreign':'chunk',quote:'This is exact original evidence.'}]})}}]});
+ globalThis.fetch=async()=>Response.json({choices:[{message:{content:JSON.stringify({claims:[{text:'根据原文的回答',citations:[{chunk_id:invented?'foreign':'chunk',quote:'This is exact original evidence.'}]}]})}}]});
  try{
  const chunks=[{chunk_id:'chunk',bookmark_id:'owned',title:'原文',url:'https://example.com',content:'This is exact original evidence.',score:1}];
  assert.equal((await answerFromEvidence('问题',chunks,{provider:'deepseek',key:'test',model:'test'})).citations.length,1);

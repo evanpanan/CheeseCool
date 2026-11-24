@@ -1,20 +1,19 @@
 'use client';
 import {useCallback,useEffect,useState} from 'react';
 import Link from 'next/link';
+import {KnowledgeChat} from './knowledge-chat';
 import {KnowledgeStudio} from './knowledge-studio';
 import {OperationalStats} from './operational-stats';
 import {AiSignal} from '../ai-signal';
 type Bookmark={id:string;title:string;original_url:string;tags:string[];notes:string;status:string};
 type Job={id:string;bookmark_id:string;state:string;stage:string;attempts:number;error_message:string|null};
 type Detail={bookmark:Bookmark;assets:{id:string;filename:string}[];sources:{id:string;origin:string;captured_at:string;source_url:string;extracted_content:string;truncated:boolean}[];derivations:{id:string;provider:string;model:string;created_at:string;source_hash:string;origin:string;evidence:string[]}[]};
-type Citation={archive_url?:string;chunk_id:string;title:string;url:string;quote:string};
 const states:Record<string,string>={queued:'排队中',running:'处理中',waiting:'等待继续',complete:'已完成',failed:'需重试',limited:'读取受限',cancelled:'已取消'};
 async function responseData(response:Response){const data=await response.json();if(!response.ok)throw new Error(data.error||'操作失败');return data;}
 export function KnowledgeManager(){
  const [tab,setTab]=useState<'library'|'jobs'|'ask'|'studio'>('library'),[trash,setTrash]=useState(false),[page,setPage]=useState(0);
  const [rows,setRows]=useState<Bookmark[]>([]),[jobs,setJobs]=useState<Job[]>([]),[total,setTotal]=useState(0);
  const [busy,setBusy]=useState(false),[notice,setNotice]=useState(''),[error,setError]=useState(''),[detail,setDetail]=useState<Detail|null>(null);
- const [question,setQuestion]=useState(''),[answer,setAnswer]=useState(''),[citations,setCitations]=useState<Citation[]>([]);
  const load=useCallback(async(signal?:AbortSignal)=>{
   const [list,work]=await Promise.all([fetch(`/api/bookmarks?trash=${trash}&page=${page}`,{signal}).then(responseData),fetch('/api/jobs',{signal}).then(responseData)]);
   setRows(list.bookmarks);setTotal(list.total);setJobs(work.jobs);
@@ -50,7 +49,7 @@ export function KnowledgeManager(){
   for(const row of imported)if(row.deleted_at&&mapping[row.id])await fetch('/api/bookmarks',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({operation:'delete',id:mapping[row.id]})}).then(responseData);
   await load();setNotice(`已导入 ${count} 条，已有链接自动跳过；历史分析以导入草稿恢复`);
  }catch(e){setError(e instanceof Error?e.message:'导入失败；已成功的条目会保留，可重新导入');}finally{setBusy(false);}}
- async function ask(){setBusy(true);setError('');setAnswer('');setCitations([]);try{const data=await fetch('/api/knowledge',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({question})}).then(responseData);setAnswer(data.answer);setCitations(data.citations);}catch(e){setError(e instanceof Error?e.message:'问答暂不可用');}finally{setBusy(false);}}
+
  return <>
   <header className="km-heading"><div><span className="km-eyebrow"><AiSignal size={18}/>你的知识资产</span><h1>内容管理</h1></div><Link href="/">返回芝士库</Link></header>
   <nav className="km-tabs" aria-label="管理内容">{([['library','收藏'],['jobs','处理任务'],['ask','知识问答'],['studio','记录与分析']] as const).map(([key,label])=><button key={key} aria-pressed={tab===key} onClick={()=>{setTab(key);setError('');}}>{label}</button>)}</nav>
@@ -69,6 +68,6 @@ export function KnowledgeManager(){
   </>}
   {tab==='jobs'&&<><OperationalStats/><div className="km-toolbar"><p>任务独立于页面运行，失败自动退避重试，最多 4 次。</p><span/><button disabled={busy} onClick={()=>load().catch(e=>setError(e.message))}>刷新状态</button></div><div className="km-list">{jobs.map(job=><article key={job.id}><h2>{rows.find(r=>r.id===job.bookmark_id)?.title||'收藏处理任务'}</h2><p>{states[job.state]||job.state} · {{extract:'采集原文',organize:'整理摘要与标签',index:'建立关联',complete:'完成'}[job.stage]||job.stage} · 尝试 {job.attempts}/4</p>{job.error_message&&<p>{job.error_message}</p>}{['failed','limited','waiting'].includes(job.state)&&<button disabled={busy} onClick={()=>mutate({operation:'retry',id:job.bookmark_id})}>重新处理</button>}</article>)}</div></>}
   {tab==='studio'&&<KnowledgeStudio records={rows} onSaved={load}/>}
-  {tab==='ask'&&<section className="km-ask"><h2>从收藏中找到答案</h2><form onSubmit={e=>{e.preventDefault();void ask();}}><label>你的问题<textarea value={question} onChange={e=>setQuestion(e.target.value)} placeholder="例如：界面组件有哪些交互设计方法" maxLength={240} rows={3}/></label><button disabled={busy||!question.trim()}>{busy?'正在查找原文证据…':'查询芝士库'}</button></form>{answer&&<div className="km-answer"><p>{answer}</p>{citations.map((cite,i)=><blockquote key={cite.chunk_id+':'+i}><a href={cite.archive_url||cite.url} target="_blank" rel="noopener noreferrer">{cite.title}</a><p>{cite.quote}</p></blockquote>)}</div>}</section>}
+  {tab==='ask'&&<KnowledgeChat/>}
  </>;
 }

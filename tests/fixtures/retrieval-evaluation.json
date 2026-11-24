@@ -1,20 +1,265 @@
 {
   "description": "Synthetic regression set. Measures lexical/fusion plumbing, not production semantic model quality.",
   "documents": [
-    {"key":"ui","title":"界面组件","tags":["界面组件"],"content":"界面组件库提供按钮、输入框和数据表格。保存完成后出现短暂提示，让使用者明确操作结果。"},
-    {"key":"motion","title":"交互动画","tags":["交互动画"],"content":"交互动画可以在展开时平滑过渡，并为减少动态效果的用户保留直接切换选项。"},
-    {"key":"archive","title":"原件保护","tags":["知识管理"],"content":"原文归档需要保留完整材料、来源地址和内容版本。模型摘要不能替代原始文件。"},
-    {"key":"vector","title":"向量检索","tags":["检索"],"content":"向量检索通过语义相似发现关键词不同的材料，混合检索结合关键词结果和向量结果。"},
-    {"key":"meeting","title":"会议逐字稿","tags":["会议"],"content":"会议逐字稿保留说话人、时间和完整发言，长录音分段转写后需要检查完整覆盖范围。"},
-    {"key":"diary","title":"日记日期","tags":["日记"],"content":"日记保存使用者选择的日期和时区，日期无效时应拒绝写入，不能默默改成当天。"}
+    {
+      "key": "ui",
+      "title": "界面组件",
+      "tags": [
+        "界面组件"
+      ],
+      "content": "界面组件库提供按钮、输入框和数据表格。保存完成后出现短暂提示，让使用者明确操作结果。"
+    },
+    {
+      "key": "motion",
+      "title": "交互动画",
+      "tags": [
+        "交互动画"
+      ],
+      "content": "交互动画可以在展开时平滑过渡，并为减少动态效果的用户保留直接切换选项。"
+    },
+    {
+      "key": "archive",
+      "title": "原件保护",
+      "tags": [
+        "知识管理"
+      ],
+      "content": "原文归档需要保留完整材料、来源地址和内容版本。模型摘要不能替代原始文件。"
+    },
+    {
+      "key": "vector",
+      "title": "向量检索",
+      "tags": [
+        "检索"
+      ],
+      "content": "向量检索通过语义相似发现关键词不同的材料，混合检索结合关键词结果和向量结果。"
+    },
+    {
+      "key": "meeting",
+      "title": "会议逐字稿",
+      "tags": [
+        "会议"
+      ],
+      "content": "会议逐字稿保留说话人、时间和完整发言，长录音分段转写后需要检查完整覆盖范围。"
+    },
+    {
+      "key": "diary",
+      "title": "日记日期",
+      "tags": [
+        "日记"
+      ],
+      "content": "日记保存使用者选择的日期和时区，日期无效时应拒绝写入，不能默默改成当天。"
+    },
+    {
+      "key": "ocr",
+      "title": "扫描件 OCR",
+      "tags": [
+        "文字识别"
+      ],
+      "content": "扫描件 OCR 将 PDF 页面栅格化后逐页识别，文字页和空白页分别处理。识别输出不完整时保留原件并标记未完成。"
+    },
+    {
+      "key": "backup",
+      "title": "加密备份恢复",
+      "tags": [
+        "灾备"
+      ],
+      "content": "加密备份使用 AES-GCM 和独立恢复密钥，恢复到空账户后核对文件字节。异地灾备需要独立的存储副本。"
+    },
+    {
+      "key": "permissions",
+      "title": "团队权限隔离",
+      "tags": [
+        "权限"
+      ],
+      "content": "团队权限区分阅读者和编辑者，任何检索必须核对资料的可见范围。撤销访问后不再返回受限资料。"
+    },
+    {
+      "key": "evolution",
+      "title": "知识更新审核",
+      "tags": [
+        "知识管理"
+      ],
+      "content": "知识更新审核要求重新检查来源版本，模型提出的不同描述不能直接覆盖已确认的知识。"
+    },
+    {
+      "key": "english",
+      "title": "Source provenance",
+      "tags": [
+        "归档"
+      ],
+      "content": "Source provenance preserves original evidence, capture time and version hashes. A generated summary cannot replace the original source."
+    },
+    {
+      "key": "rerank",
+      "title": "检索重排模型",
+      "tags": [
+        "检索"
+      ],
+      "content": "检索重排模型对召回候选重新计算相关性，先按问题排序，再保留多份来源。服务失败时明确降级到本地排序。"
+    },
+    {
+      "key": "retention-old",
+      "title": "旧版保留策略",
+      "tags": [
+        "保留策略"
+      ],
+      "content": "旧版保留策略规定，测试环境日志保留七天。此规则仅适用于旧版测试环境。"
+    },
+    {
+      "key": "retention-new",
+      "title": "新版保留策略",
+      "tags": [
+        "保留策略"
+      ],
+      "content": "新版保留策略规定，正式环境日志保留三十天。不同环境和版本的保留规则不能混为一谈。"
+    }
   ],
   "queries": [
-    {"question":"UI组件","relevant":["ui"]},
-    {"question":"动效","relevant":["motion"]},
-    {"question":"如何归档原文","relevant":["archive"]},
-    {"question":"混合检索","relevant":["vector"]},
-    {"question":"会议逐字稿","relevant":["meeting"]},
-    {"question":"日记时区","relevant":["diary"]},
-    {"question":"火星海鲜菜单","relevant":[]}
+    {
+      "question": "UI组件",
+      "relevant": [
+        "ui"
+      ]
+    },
+    {
+      "question": "动效",
+      "relevant": [
+        "motion"
+      ]
+    },
+    {
+      "question": "如何归档原文",
+      "relevant": [
+        "archive"
+      ]
+    },
+    {
+      "question": "混合检索",
+      "relevant": [
+        "vector"
+      ]
+    },
+    {
+      "question": "会议逐字稿",
+      "relevant": [
+        "meeting"
+      ]
+    },
+    {
+      "question": "日记时区",
+      "relevant": [
+        "diary"
+      ]
+    },
+    {
+      "question": "火星海鲜菜单",
+      "relevant": []
+    },
+    {
+      "question": "扫描件逐页识别",
+      "relevant": [
+        "ocr"
+      ]
+    },
+    {
+      "question": "OCR 输出不完整",
+      "relevant": [
+        "ocr"
+      ]
+    },
+    {
+      "question": "加密备份恢复密钥",
+      "relevant": [
+        "backup"
+      ]
+    },
+    {
+      "question": "独立存储异地灾备",
+      "relevant": [
+        "backup"
+      ]
+    },
+    {
+      "question": "团队阅读者编辑者",
+      "relevant": [
+        "permissions"
+      ]
+    },
+    {
+      "question": "撤销访问权限",
+      "relevant": [
+        "permissions"
+      ]
+    },
+    {
+      "question": "知识更新审核",
+      "relevant": [
+        "evolution"
+      ]
+    },
+    {
+      "question": "不同描述覆盖已确认知识",
+      "relevant": [
+        "evolution"
+      ]
+    },
+    {
+      "question": "source provenance",
+      "relevant": [
+        "english"
+      ]
+    },
+    {
+      "question": "original evidence version hashes",
+      "relevant": [
+        "english"
+      ]
+    },
+    {
+      "question": "检索重排模型",
+      "relevant": [
+        "rerank"
+      ]
+    },
+    {
+      "question": "重排服务失败降级",
+      "relevant": [
+        "rerank"
+      ]
+    },
+    {
+      "question": "旧版测试环境日志保留",
+      "relevant": [
+        "retention-old"
+      ]
+    },
+    {
+      "question": "新版正式环境日志保留",
+      "relevant": [
+        "retention-new"
+      ]
+    },
+    {
+      "question": "保留策略对比",
+      "relevant": [
+        "retention-old",
+        "retention-new"
+      ]
+    },
+    {
+      "question": "原文归档和加密备份",
+      "relevant": [
+        "archive",
+        "backup"
+      ]
+    },
+    {
+      "question": "多轮追问代词指代",
+      "relevant": []
+    },
+    {
+      "question": "量子海豚菜谱",
+      "relevant": []
+    }
   ]
 }

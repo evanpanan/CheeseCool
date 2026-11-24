@@ -3,7 +3,7 @@ import {encryptionKey,type AiSettings,resolveAi} from './ai-settings';
 export type CapabilityProvider='aliyun'|'openai';
 export type ServiceConfig={provider:CapabilityProvider;key:string;host:string;model:string};
 export type EmbeddingService=ServiceConfig&{endpoint:string;space:string;dimensions:1536};
-export type CapabilitySettings={provider:CapabilityProvider;aliyun_key?:string|null;aliyun_host?:string|null;embedding_model?:string|null;ocr_model?:string|null;asr_model?:string|null};
+export type CapabilitySettings={provider:CapabilityProvider;aliyun_key?:string|null;aliyun_host?:string|null;embedding_model?:string|null;ocr_model?:string|null;asr_model?:string|null;rerank_model?:string|null};
 export function validAliyunHost(host:string){return host==='dashscope.aliyuncs.com'||/^[a-zA-Z0-9-]{2,80}\.cn-beijing\.maas\.aliyuncs\.com$/.test(host);}
 export function resolveCapabilities(settings:CapabilitySettings|null,ai:ReturnType<typeof resolveAi>){
  const provider=settings?.provider|| (process.env.CAPABILITY_PROVIDER==='openai'?'openai':'aliyun');
@@ -16,5 +16,5 @@ export function resolveCapabilities(settings:CapabilitySettings|null,ai:ReturnTy
  const ocrModel=settings?.ocr_model|| (provider==='aliyun'?'qwen3.5-ocr':'gpt-4.1-mini');
  const asrModel=settings?.asr_model|| (provider==='aliyun'?'paraformer-v2':'gpt-transcribe');
  const common={provider,host:provider==='aliyun'?host:'api.openai.com',key:key||''};
- return {serviceProvider:provider,embedding:key?{...common,model:embeddingModel,dimensions:1536 as const,space:`${provider}:${embeddingModel}:1536`,endpoint:provider==='aliyun'?`https://${host}/compatible-mode/v1/embeddings`:'https://api.openai.com/v1/embeddings'} as EmbeddingService:null,ocr:key?{...common,model:ocrModel} as ServiceConfig:null,asr:key?{...common,model:asrModel} as ServiceConfig:null};
+ return {serviceProvider:provider,rerank:provider==='aliyun'&&key?{...common,model:settings?.rerank_model||'qwen3.7-text-rerank'} as ServiceConfig:null,embedding:key?{...common,model:embeddingModel,dimensions:1536 as const,space:`${provider}:${embeddingModel}:1536`,endpoint:provider==='aliyun'?`https://${host}/compatible-mode/v1/embeddings`:'https://api.openai.com/v1/embeddings'} as EmbeddingService:null,ocr:key?{...common,model:ocrModel} as ServiceConfig:null,asr:key?{...common,model:asrModel} as ServiceConfig:null};
 }

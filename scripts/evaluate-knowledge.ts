@@ -15,10 +15,10 @@ try{
  for(const query of fixture.queries){
   const start=performance.now();const candidates=await db.query<RetrievalCandidate>('select * from public.hybrid_knowledge_candidates($1,null)',[expandRetrievalQuery(query.question)]);
   const ranked=rerankEvidence(query.question,candidates.rows);const actual=[...new Set(ranked.map(c=>keys.get(c.bookmark_id)!))];const rank=actual.findIndex(id=>query.relevant.includes(id));
-  results.push({question:query.question,expected:query.relevant,actual,hit_at_3:query.relevant.length?rank>=0&&rank<3:actual.length===0,reciprocal_rank:query.relevant.length&&rank>=0?1/(rank+1):0,latency_ms:Math.round(performance.now()-start)});
+  results.push({question:query.question,expected:query.relevant,actual,recall_at_5:query.relevant.length?actual.slice(0,5).filter(id=>query.relevant.includes(id)).length/query.relevant.length:1,ndcg_at_5:query.relevant.length?actual.slice(0,5).reduce((sum,id,i)=>sum+(query.relevant.includes(id)?1/Math.log2(i+2):0),0)/Array.from({length:Math.min(5,query.relevant.length)},(_,i)=>1/Math.log2(i+2)).reduce((a,b)=>a+b,0):1,hit_at_3:query.relevant.length?rank>=0&&rank<3:actual.length===0,reciprocal_rank:query.relevant.length&&rank>=0?1/(rank+1):0,latency_ms:Math.round(performance.now()-start)});
  }
  const positive=results.filter(r=>r.expected.length),passed=results.every(r=>r.hit_at_3);
- console.log(JSON.stringify({scope:'synthetic-local-no-external-model',ranking:'rrf-local-v1',queries:results.length,hit_at_3:positive.filter(r=>r.hit_at_3).length/positive.length,mrr:positive.reduce((n,r)=>n+r.reciprocal_rank,0)/positive.length,empty_query_pass:results.filter(r=>!r.expected.length).every(r=>r.hit_at_3),results},null,2));
+ console.log(JSON.stringify({scope:'synthetic-local-no-external-model',ranking:'rrf-local-v1',queries:results.length,hit_at_3:positive.filter(r=>r.hit_at_3).length/positive.length,mrr:positive.reduce((n,r)=>n+r.reciprocal_rank,0)/positive.length,recall_at_5:positive.reduce((n,r)=>n+r.recall_at_5,0)/positive.length,ndcg_at_5:positive.reduce((n,r)=>n+r.ndcg_at_5,0)/positive.length,p95_latency_ms:results.map(r=>r.latency_ms).sort((a,b)=>a-b)[Math.ceil(results.length*.95)-1],empty_query_pass:results.filter(r=>!r.expected.length).every(r=>r.hit_at_3),results},null,2));
  if(!passed)process.exitCode=1;
 }finally{await db.close();}
 

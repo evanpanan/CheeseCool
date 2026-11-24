@@ -32,5 +32,5 @@ export async function retrieveEvidence(db:Awaited<ReturnType<typeof database>>,q
  if(error)throw error;
  const candidates=(data||[]) as RetrievalCandidate[];
  const sources=rerankEvidence(question,candidates);
- return {sources,mode:vector?'hybrid':'keyword',ranking:'rrf-local-v1',candidate_count:candidates.length,semantic_matches:candidates.filter(c=>c.semantic_rank!=null).length};
+ return {sources,candidates,mode:vector?'hybrid':'keyword',ranking:'rrf-local-v1',candidate_count:candidates.length,semantic_matches:candidates.filter(c=>c.semantic_rank!=null).length};
 }

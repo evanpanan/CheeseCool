@@ -2,6 +2,7 @@
 import {useEffect,useState} from 'react';
 import Link from 'next/link';
 import {UploadOriginal} from './upload-original';
+import {DiscoveryPanel} from './discovery-panel';
 import {BackupPanel} from './backup-panel';
 import {EntityWorkbench} from './entity-workbench';
 type RecordRow={id:string;title:string};
@@ -11,6 +12,7 @@ async function read(response:Response){const data=await response.json();if(!resp
 export function KnowledgeStudio({records,onSaved}:{records:RecordRow[];onSaved:()=>Promise<void>}){
  const [kind,setKind]=useState('note'),[title,setTitle]=useState(''),[content,setContent]=useState(''),[date,setDate]=useState('');
  const [selected,setSelected]=useState<string[]>([]),[question,setQuestion]=useState(''),[insights,setInsights]=useState<Insight[]>([]),[entities,setEntities]=useState<Entity[]>([]);
+ const [reviewSequence,setReviewSequence]=useState(0);
  const [busy,setBusy]=useState(false),[error,setError]=useState(''),[notice,setNotice]=useState('');
  async function load(){const data=await fetch('/api/insights').then(read);setInsights(data.insights);setEntities(data.entities);}
  useEffect(()=>{setDate(new Intl.DateTimeFormat('en-CA').format(new Date()));void load().catch(e=>setError(e.message));},[]);
@@ -31,6 +33,6 @@ export function KnowledgeStudio({records,onSaved}:{records:RecordRow[];onSaved:(
   {insights.map(insight=><section className="km-ask" key={insight.id}><div className="km-toolbar"><h2>{insight.title}</h2><span/><small>{insight.state==='draft'?'待确认':insight.state==='confirmed'?'已确认':'已放弃'}</small></div><p style={{whiteSpace:'pre-wrap',lineHeight:1.9}}>{insight.body}</p>{insight.evidence.map((e,i)=><blockquote key={i}><Link href={'/document/'+e.source_id+'?version='+encodeURIComponent(e.source_hash)}>查看材料</Link><p>{e.quote}</p></blockquote>)}{Boolean(insight.entities.length)&&<details><summary>候选实体 {insight.entities.length}</summary>{insight.entities.map((entity,i)=><p key={i}>{entity.name} · {entity.description}</p>)}</details>}
    {insight.state==='draft'?<div className="km-row-actions"><button disabled={busy} onClick={()=>run(async()=>{await fetch('/api/insights',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({operation:'confirm',id:insight.id})}).then(read);setNotice('已保存为知识笔记，并更新已确认实体');})}>确认并沉淀为知识</button><button disabled={busy} onClick={()=>run(async()=>{await fetch('/api/insights',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({operation:'reject',id:insight.id})}).then(read);})}>放弃草稿</button></div>:insight.published_bookmark_id&&<Link href={'/document/'+insight.published_bookmark_id}>打开知识笔记</Link>}
   </section>)}
-  <BackupPanel/><EntityWorkbench refreshKey={insights.map(i=>i.id+':'+i.state).join('|')}/>
+  <BackupPanel/><DiscoveryPanel onReviewed={()=>setReviewSequence(v=>v+1)}/><EntityWorkbench refreshKey={reviewSequence+insights.map(i=>i.id+':'+i.state).join('|')}/>
  </div>;
 }
