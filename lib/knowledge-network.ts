@@ -1,5 +1,6 @@
 import type { Platform } from './urls';
 import { layoutNetwork } from './network-layout';
+import { displayTitle } from './display-title';
 
 export type NetworkBookmark = {
   id: string;
@@ -97,7 +98,7 @@ export function buildNetwork(bookmarks: NetworkBookmark[], edges: NetworkEdge[],
     const nodes = items.map(bookmark => {
       const connections = neighbors.get(bookmark.id) ?? [];
       return {
-        ...bookmark, group: key, groupIndex, color, connections, degree: connections.length,
+        ...bookmark, display_title: displayTitle(bookmark.title, bookmark.record_type), group: key, groupIndex, color, connections, degree: connections.length,
         x: 0, y: 0, radius: 7 + Math.min(10, Math.sqrt(connections.length) * 2.4),
       };
     }).sort((a, b) => b.degree - a.degree);
