@@ -28,6 +28,18 @@ export function OrbitCanvas(props: Props) {
   currentDocument.current = document;
   const [paintedDocument, setPaintedDocument] = useState('');
 
+  const [revision,setRevision]=useState(0);
+  const [recovery,setRecovery]=useState<'idle'|'retrying'|'failed'>('idle');
+  const lastHealth=useRef(Date.now());
+  const lastRestart=useRef(0);
+  const attempts=useRef(0);
+  function restart(manual=false){
+    if(manual)attempts.current=0;
+    if(attempts.current>=2){setRecovery('failed');return;}
+    attempts.current++;lastRestart.current=Date.now();lastHealth.current=Date.now();
+    sentGraph.current=null;setPaintedDocument('');setRecovery('retrying');setRevision(value=>value+1);
+  }
+
   function synchronize() {
     const value = latest.current;
     if(sentGraph.current!==value.graph){
@@ -46,6 +58,10 @@ export function OrbitCanvas(props: Props) {
     function receive(event: MessageEvent) {
       if (event.source !== frame.current?.contentWindow) return;
       if (event.data?.type === 'cheesecool:ready') {sentGraph.current=null;synchronize();}
+      if(event.data?.type==='cheesecool:render-health'){
+        if(event.data.ok===true){lastHealth.current=Date.now();if(Date.now()-lastRestart.current>30000)attempts.current=0;setRecovery('idle');}
+        else if(event.data.reason==='paint'&&Date.now()-lastRestart.current>750)restart();
+      }
       if (event.data?.type === 'cheesecool:painted') setPaintedDocument(currentDocument.current);
       if (event.data?.type === 'cheesecool:located' && latest.current.saved && event.data.id === latest.current.saved?.id && event.data.event === latest.current.saved.event) {
         locatedSave.current = `${event.data.id}:${event.data.event}`;
@@ -66,10 +82,22 @@ export function OrbitCanvas(props: Props) {
     // Theme chrome changes immediately; do not wait for a React passive effect.
     window.addEventListener('cheesecool:appearance', synchronize);
     window.addEventListener('storage', synchronize);
+    function check(){
+      if(window.document.hidden){lastHealth.current=Date.now();return;}
+      if(Date.now()-lastHealth.current>5000){restart();return;}
+      frame.current?.contentWindow?.postMessage({type:'cheesecool:render-check'},'*');
+    }
+    const healthTimer=window.setInterval(check,1500);
+    function resume(){if(!window.document.hidden){lastHealth.current=Date.now();synchronize();check();}}
+    window.addEventListener('pageshow',resume);
+    window.document.addEventListener('visibilitychange',resume);
     return () => {
       window.removeEventListener('message', receive);
       window.removeEventListener('cheesecool:appearance', synchronize);
       window.removeEventListener('storage', synchronize);
+      window.clearInterval(healthTimer);
+      window.removeEventListener('pageshow',resume);
+      window.document.removeEventListener('visibilitychange',resume);
     };
   }, []);
 
@@ -92,7 +120,12 @@ export function OrbitCanvas(props: Props) {
   },[props.graph,props.selected]);
 
   useEffect(synchronize, [props.graph, props.night, props.query, props.paused, props.selected, props.saved]);
-  return <iframe ref={frame} title="芝士库" className="orbit-library-frame"
-    style={{ visibility: paintedDocument === document ? 'visible' : 'hidden' }}
-    sandbox="allow-scripts allow-popups allow-popups-to-escape-sandbox" srcDoc={document} onLoad={synchronize}/>;
+  return <><iframe key={revision} ref={frame} title="芝士库" className="orbit-library-frame"
+    style={{ visibility: recovery!=='failed'&&paintedDocument === document ? 'visible' : 'hidden' }}
+    sandbox="allow-scripts allow-popups allow-popups-to-escape-sandbox" srcDoc={document} onLoad={synchronize}/>
+    {recovery!=='idle'&&<div className="orbit-recovery" role="status">
+      <p>{recovery==='failed'?'画布暂时未能加载 你的收藏仍已保存':'正在恢复芝士库…'}</p>
+      {recovery==='failed'&&<div><button type="button" onClick={()=>restart(true)}>重新加载画布</button><a href="/manage">查看收藏</a></div>}
+    </div>}
+  </>;
 }

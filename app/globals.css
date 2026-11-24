@@ -883,3 +883,7 @@ html[data-theme=light] .orbit-reference-controls { background:#f5faf5ee; border-
 html[data-theme=light] .orbit-reference-controls button { color:#456041; }
 html[data-theme=light] .orbit-reference-controls button:hover { background:#e5efe2; color:#294b21; }
 html[data-theme=light] .orbit-reference-controls>span { border-color:#d0ddcd; }
+
+.reference-library-page{position:relative}
+.orbit-recovery{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;background:var(--paper);color:var(--subtle);padding:24px;text-align:center}
+.orbit-recovery p{font-size:14px;line-height:1.7}.orbit-recovery>div{display:flex;gap:20px;align-items:center}.orbit-recovery button{min-height:44px;padding:0 16px;border-radius:12px;border:1px solid var(--line);background:var(--surface);color:var(--ink)}.orbit-recovery a{font-size:13px;color:var(--ink)}

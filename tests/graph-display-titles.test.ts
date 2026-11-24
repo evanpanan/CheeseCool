@@ -112,3 +112,23 @@ test('theme changes paint synchronously even with RAF suspended and retain the c
   assert.deepEqual(errors,[]);
  }finally{dom.window.close();}
 });
+
+test('a temporarily zero-size or interrupted canvas recovers without losing knowledge or leaving the camera invalid',()=>{
+ let width=0,height=0,failNextImage=false,images=0;const messages:any[]=[],errors:string[]=[];
+ const context=new Proxy({createRadialGradient:()=>({addColorStop(){}}),createPattern:()=>null,measureText:()=>({width:30}),drawImage(){if(failNextImage){failNextImage=false;throw new Error('Discarded backing store');}images++;}}, {get:(value,key)=>key in value?value[key as keyof typeof value]:()=>{}});
+ const graph=buildNetwork([{id:'saved',title:'Saved knowledge',original_url:'https://example.org/saved',final_url:null,platform:'web',summary:'Saved source',ai_summary:null,tags:['设计'],status:'indexed'}],[]);
+ const console=new VirtualConsole();console.on('jsdomError',e=>{if(!('type' in e)||e.type!=='css-parsing')errors.push(e.message);});
+ const dom=new JSDOM(orbitDocument.replace('__PAYLOAD__','window.__cheesecool='+JSON.stringify(graph)+';'),{runScripts:'dangerously',virtualConsole:console,beforeParse(win){
+  win.matchMedia=()=>({matches:false}) as MediaQueryList;win.requestAnimationFrame=()=>0;win.cancelAnimationFrame=()=>{};win.postMessage=(message:unknown)=>messages.push(message);
+  win.HTMLCanvasElement.prototype.getContext=(()=>context) as any;
+  Object.defineProperty(win.HTMLCanvasElement.prototype,'clientWidth',{get:()=>width});Object.defineProperty(win.HTMLCanvasElement.prototype,'clientHeight',{get:()=>height});
+ }});
+ try{
+  const win=dom.window;assert.equal(win.eval('safePaint(performance.now())'),false);assert.equal(win.eval('paintFailures'),0);
+  width=1440;height=900;win.dispatchEvent(new win.Event('resize'));assert.equal(win.eval('safePaint(performance.now())'),true);assert(images>0);
+  failNextImage=true;assert.equal(win.eval('safePaint(performance.now())'),false);assert.equal(win.eval('safePaint(performance.now())'),true);assert.equal(win.eval('paintFailures'),0);
+  win.eval("byId.get('saved').x=NaN;byId.get('saved').tx=NaN;scale=NaN;ox=Infinity");assert.equal(win.eval('safePaint(performance.now())'),true);assert.equal(win.eval('[scale,ox,oy,...nodes.flatMap(n=>[n.x,n.y,n.tx,n.ty])].every(Number.isFinite)'),true);
+  const camera=win.eval('[scale,ox,oy].join()');win.document.querySelector('canvas')!.dispatchEvent(new win.Event('contextrestored'));assert.equal(win.eval('[scale,ox,oy].join()'),camera);
+  win.dispatchEvent(new win.MessageEvent('message',{source:win as unknown as Window,data:{type:'cheesecool:render-check'}}));assert(messages.some(m=>m.type==='cheesecool:render-health'&&m.ok));assert.equal(win.eval('nodes.length'),1);assert.deepEqual(errors,[]);
+ }finally{dom.window.close();}
+});
