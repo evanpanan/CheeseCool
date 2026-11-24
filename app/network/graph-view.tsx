@@ -1,3 +1,5 @@
+import {after} from 'next/server';
+import {runSourceTasks} from '@/lib/source-lifecycle';
 import { siteAiConfig } from '@/lib/site-ai';
 import { scheduleBookmarkBackfill } from '@/lib/bookmark-backfill';
 import type { database } from '@/lib/supabase';
@@ -14,7 +16,7 @@ export async function GraphView({ db, userId }: {
   userId: string;
 }) {
   const { data, error } = await db.from('bookmarks')
-    .select('id,title,original_url,final_url,platform,summary,ai_summary,tags,status,created_at,processing_attempted_at,record_type,attributes')
+    .select('id,title,original_url,final_url,platform,summary,ai_summary,tags,status,source_hash,created_at,processing_attempted_at,record_type,attributes')
     .eq('user_id', userId).is('deleted_at', null)
     .order('created_at', { ascending: false }).order('id', { ascending: false })
     .limit(graphLimit + 1);
@@ -36,6 +38,8 @@ export async function GraphView({ db, userId }: {
   const edges = results.flatMap(result => result.edges);
   const aiConfig = await siteAiConfig().catch(() => null);
   const backfilling = aiConfig?.chat ? await scheduleBookmarkBackfill(db, Boolean(aiConfig.embedding)).catch(() => false) : false;
+  const sourceWork=aiConfig?.chat?await db.from('knowledge_source_tasks').select('id').in('state',['queued','running']).lte('available_at',new Date().toISOString()).limit(1):null;
+  const sourcePending=Boolean(sourceWork?.data?.length);if(sourcePending)after(async()=>{await runSourceTasks(userId);});
   const relationMessage = !aiConfig?.chat
     ? '智能整理服务尚未就绪，关联分析暂不可用。'
     : !aiConfig.embedding ? '当前按共同标签发现关联；语义关联服务尚未启用。' : undefined;
@@ -47,7 +51,7 @@ export async function GraphView({ db, userId }: {
       <>
         {results.some(result => result.error) && <p className="error" role="alert">部分关联暂时无法加载。</p>}
         {(data?.length ?? 0) > graphLimit && <p className="network-note">当前显示最近 {graphLimit} 条收藏及它们之间的关联。</p>}
-        {(backfilling || refreshUntil > Date.now()) && <RefreshCollection until={Math.max(refreshUntil, backfilling ? Date.now() + 65000 : 0)}/>}
+        {(backfilling || sourcePending || refreshUntil > Date.now()) && <RefreshCollection until={Math.max(refreshUntil, backfilling||sourcePending ? Date.now() + 65000 : 0)}/>}
         <NetworkExplorer bookmarks={bookmarks} edges={edges} relationMessage={relationMessage}/>
       </>}
   </>;

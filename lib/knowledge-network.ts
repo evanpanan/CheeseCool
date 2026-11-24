@@ -12,6 +12,7 @@ export type NetworkBookmark = {
   ai_summary: string | null;
   tags: string[];
   status: string;
+  source_hash?:string|null;
   record_type?: string;
   attributes?: Record<string, unknown>;
 };
@@ -98,7 +99,7 @@ export function buildNetwork(bookmarks: NetworkBookmark[], edges: NetworkEdge[],
     const nodes = items.map(bookmark => {
       const connections = neighbors.get(bookmark.id) ?? [];
       return {
-        ...bookmark, display_title: displayTitle(bookmark.title, bookmark.record_type), group: key, groupIndex, color, connections, degree: connections.length,
+        ...bookmark, display_title: (()=>{const label=bookmark.attributes?.node_title as {text?:unknown;source_hash?:string;original_title?:string}|undefined;return label&&typeof label.text==='string'&&Array.from(label.text).length<=32&&label.source_hash===bookmark.source_hash&&label.original_title===bookmark.title?label.text:displayTitle(bookmark.title,bookmark.record_type,bookmark.platform,bookmark.tags);})(), group: key, groupIndex, color, connections, degree: connections.length,
         x: 0, y: 0, radius: 7 + Math.min(10, Math.sqrt(connections.length) * 2.4),
       };
     }).sort((a, b) => b.degree - a.degree);

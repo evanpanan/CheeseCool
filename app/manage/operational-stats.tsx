@@ -1,6 +1,6 @@
 'use client';
 import {useEffect,useState} from 'react';
-const incidentLabels:Record<string,string>={ingestion_failed:'有采集或整理任务失败',analysis_failed:'有自动分析任务失败',backup_failed:'有备份任务失败',processing_stalled:'部分处理任务超过 30 分钟未推进',backup_stalled:'部分备份超过 30 分钟未推进',query_degraded:'近一小时部分检索服务持续降级'};
+const incidentLabels:Record<string,string>={source_failed:'有来源检查或短标题任务失败',source_stalled:'来源维护超过 30 分钟未推进',ingestion_failed:'有采集或整理任务失败',analysis_failed:'有自动分析任务失败',backup_failed:'有备份任务失败',processing_stalled:'部分处理任务超过 30 分钟未推进',backup_stalled:'部分备份超过 30 分钟未推进',query_degraded:'近一小时部分检索服务持续降级'};
 export function OperationalStats({site=false}:{site?:boolean}){
  const [diagnostics,setDiagnostics]=useState<{queries:{total:number;degraded:number;with_citations:number;p95_ms:number|null};incidents:{code:string;affected:number}[]}|null>(null);
  const [data,setData]=useState<{jobs:Record<string,number>;original_bytes:number;last24h:{complete:number;failed:number;limited:number;average_duration_ms:number|null}}|null>(null),[error,setError]=useState('');

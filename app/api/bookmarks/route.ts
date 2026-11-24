@@ -112,9 +112,7 @@ export async function POST(request:Request){try{
   if(owned.deleted_at)throw new ApiError(400,'请先从回收站恢复收藏');
   if(body.operation==='recapture'){
    if(owned.record_type!=='web')throw new ApiError(400,'这是一份受保护原件，修订请新建记录，不进行网页重新采集');
-   const {data:job}=await db.from('bookmark_jobs').select('state,lease_until').eq('bookmark_id',id).maybeSingle();
-   if(job?.state==='running'&&Date.parse(job.lease_until)>Date.now())throw new ApiError(409,'正在处理，请完成后再重新采集');
-   const {error}=await db.from('bookmarks').update({status:'saved',content:null,source_hash:null,ai_summary:null,embedding:null}).eq('id',id);if(error)throw error;
+   const {data,error}=await db.rpc('request_source_refresh',{record_id:id,refresh_hours:null});if(error)throw error;if(!data)throw new ApiError(409,'请先在处理任务中重试原文采集');after(async()=>{const {runSourceTasks}=await import('@/lib/source-lifecycle');await runSourceTasks(user.id);});return Response.json({ok:true,queued:true});
   }
   const {data,error}=await db.rpc('retry_own_bookmark',{bookmark_id:id});if(error||!data)throw new ApiError(409,'任务正在运行');
   after(async()=>{await runKnowledgeJobs(user.id);});

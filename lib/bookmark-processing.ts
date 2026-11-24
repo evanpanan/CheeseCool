@@ -43,7 +43,7 @@ export async function processBookmark(db:Client,id:string,onStage:(stage:string)
  const {data:existingChunks,error:chunkReadError}=await db.from('bookmark_chunks').select('id').eq('bookmark_id',id).eq('source_hash',source.source_hash).limit(1);
  if(chunkReadError)throw new ProcessingError('chunk_read','正文索引读取失败');
  if(!existingChunks?.length){
-  const {error:chunkError}=await db.from('bookmark_chunks').upsert(chunks.map((content,ordinal)=>({user_id:row.user_id,bookmark_id:id,source_hash:source.source_hash,ordinal,content})),{onConflict:'bookmark_id,ordinal'});
+  const {error:chunkError}=await db.from('bookmark_chunks').upsert(chunks.map((content,ordinal)=>({user_id:row.user_id,bookmark_id:id,source_hash:source.source_hash,ordinal,content,embedding:null})),{onConflict:'bookmark_id,ordinal'});
   if(chunkError)throw new ProcessingError('chunk_write','正文分段索引失败');
  }
  await onStage('organize');

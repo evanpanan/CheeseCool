@@ -11,7 +11,7 @@ export function isPublicAddress(address: string) {
     (ip.toByteArray()[0] & 0xe0) === 0x20);
 }
 
-export async function readPublic(input: URL, accepts = 'text/html,application/xhtml+xml') {
+export async function readPublic(input: URL, accepts = 'text/html,application/xhtml+xml', validators?:{etag?:string|null;lastModified?:string|null}) {
   const signal = AbortSignal.timeout(6500);
   let url = input;
   for (let hop = 0; hop <= 5; hop++) {
@@ -27,14 +27,15 @@ export async function readPublic(input: URL, accepts = 'text/html,application/xh
       throw new Error('链接必须指向公开网络。');
     }
     const { address, family } = addresses[0];
-    const response = await new Promise<{ location?: string; text?: string }>((resolve, reject) => {
+    const response = await new Promise<{ location?: string; text?: string;notModified?:boolean;etag?:string;lastModified?:string }>((resolve, reject) => {
       const transport = url.protocol === 'https:' ? https : http;
       const request = transport.get(url, {
         agent: false, family, signal,
         lookup: (_hostname, _options, callback) => callback(null, address, family),
-        headers: { 'User-Agent': 'CheeseCool/1.0', Accept: accepts, 'Accept-Encoding': 'identity' },
+        headers: { 'User-Agent': 'CheeseCool/1.0', Accept: accepts, 'Accept-Encoding': 'identity',...(url.origin===input.origin&&validators?.etag&&validators.etag.length<=512&&!/[\r\n]/.test(validators.etag)?{'If-None-Match':validators.etag}:{}),...(url.origin===input.origin&&validators?.lastModified&&validators.lastModified.length<=128&&!/[\r\n]/.test(validators.lastModified)?{'If-Modified-Since':validators.lastModified}:{}) },
       }, (res) => {
-        const code = res.statusCode ?? 0;
+        const code = res.statusCode ?? 0;const etag=typeof res.headers.etag==='string'?res.headers.etag.slice(0,512):undefined,lastModified=typeof res.headers['last-modified']==='string'?res.headers['last-modified'].slice(0,128):undefined;
+        if(code===304&&url.origin===input.origin&&validators&&((validators.etag&&validators.etag.length<=512&&!/[\r\n]/.test(validators.etag))||(validators.lastModified&&validators.lastModified.length<=128&&!/[\r\n]/.test(validators.lastModified)))){res.destroy();return resolve({notModified:true,etag,lastModified});}
         if ([301, 302, 303, 307, 308].includes(code) && res.headers.location) {
           res.destroy();
           return resolve({ location: res.headers.location });
@@ -56,7 +57,7 @@ export async function readPublic(input: URL, accepts = 'text/html,application/xh
         res.on('error', reject);
         res.on('end', () => {
           const charset = contentType.match(/charset=["']?([\w-]+)/i)?.[1] ?? 'utf-8';
-          try { resolve({ text: new TextDecoder(charset).decode(Buffer.concat(chunks)) }); }
+          try { resolve({ text: new TextDecoder(charset).decode(Buffer.concat(chunks)),etag,lastModified }); }
           catch { reject(new Error('来源字符编码无法读取。')); }
         });
       });
@@ -66,7 +67,7 @@ export async function readPublic(input: URL, accepts = 'text/html,application/xh
       url = new URL(response.location, url);
       continue;
     }
-    return { url, text: response.text ?? '' };
+    return { url, text: response.text ?? '',notModified:response.notModified||false,etag:response.etag,lastModified:response.lastModified };
   }
   throw new Error('链接重定向次数过多。');
 }

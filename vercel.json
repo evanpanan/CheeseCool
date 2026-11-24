@@ -11,6 +11,10 @@
     {
       "path": "/api/internal/enrichment-worker",
       "schedule": "* * * * *"
+    },
+    {
+      "path": "/api/internal/source-worker",
+      "schedule": "* * * * *"
     }
   ],
   "regions": [
