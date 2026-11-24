@@ -9,7 +9,7 @@ export async function runKnowledgeJobs(ownerId?:string){
  const {data:garbage}=await db.from('bookmark_asset_gc').select('id,object_path').lte('available_at',new Date().toISOString()).limit(30);
  if(garbage?.length){
   const {data:live,error:readError}=await db.rpc('asset_paths_in_use',{paths:garbage.map(g=>g.object_path)});
-  if(!readError){const keep=new Set((live||[]).map((a:{object_path:string})=>a.object_path));const paths=garbage.filter(g=>!keep.has(g.object_path)).map(g=>g.object_path);const {error}=paths.length?await db.storage.from('knowledge-originals').remove(paths):{error:null};if(!error)await db.from('bookmark_asset_gc').delete().in('id',garbage.filter(g=>!keep.has(g.object_path)).map(g=>g.id));}
+  if(!readError){const keep=new Set((live||[]).map((a:{object_path:string})=>a.object_path));if(keep.size)await db.from('bookmark_asset_gc').update({available_at:new Date(Date.now()+3600000).toISOString()}).in('object_path',[...keep]);const paths=garbage.filter(g=>!keep.has(g.object_path)).map(g=>g.object_path);const {error}=paths.length?await db.storage.from('knowledge-originals').remove(paths):{error:null};if(!error)await db.from('bookmark_asset_gc').delete().in('id',garbage.filter(g=>!keep.has(g.object_path)).map(g=>g.id));}
  }
  const services=await siteAiConfig();if(services.embedding){const {error}=await db.rpc('enqueue_embedding_updates',{new_space:services.embedding.space,owner_id:ownerId||null});if(error)throw new Error('Index maintenance could not start');}
  const {data,error}=await db.rpc('claim_bookmark_jobs',{owner_id:ownerId||null,batch_size:3});

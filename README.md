@@ -83,7 +83,7 @@ npm run build
 - 模型问答限制为每账号每小时 20 次，收藏每账号每天 200 次，导入每天 500 次。定时任务不会对已完成条目反复调用模型。
 - 安全与恢复测试：`npm test`；生产构建：`npm run build`。重点覆盖租约恢复、跨账号隔离、原件只读、回收站检索排除、模型引用校验和持久配额。
 
-Supabase 安全检查会提示四个已登录用户可调用的 SECURITY DEFINER RPC：配额函数只使用 auth.uid() 写固定配额，重试函数先核对 auth.uid() 与收藏所有权；记录创建与分析确认函数也固定使用 auth.uid() 并核对来源所有权；均设置固定 search_path、拒绝匿名访问并有跨账号测试。这是有意的有限提权，未授予用户直接修改队列表或配额表的权限。[检查规则与说明](https://supabase.com/docs/guides/database/database-linter?lint=0029_authenticated_security_definer_function_executable)。仅服务端配置表与内部配额表无客户端策略是默认拒绝设计。
+Supabase 安全检查会提示一组已登录用户可调用的 SECURITY DEFINER RPC：配额函数只使用 auth.uid() 写固定配额，重试函数先核对 auth.uid() 与收藏所有权；记录创建与分析确认函数也固定使用 auth.uid() 并核对来源所有权；均设置固定 search_path、拒绝匿名访问并有跨账号测试。这是有意的有限提权，未授予用户直接修改队列表或配额表的权限。[检查规则与说明](https://supabase.com/docs/guides/database/database-linter?lint=0029_authenticated_security_definer_function_executable)。仅服务端配置表与内部配额表无客户端策略是默认拒绝设计。
 
 
 ### 完整记录与材料分析
@@ -141,3 +141,5 @@ node --import tsx scripts/restore-backup.ts /secure/path/cheesecool-backup.zip
 ```
 
 恢复工具先核对清单和每个文件，再映射结构化引用和私有存储路径；原始文字与版本哈希不改写。知识记录在一个数据库事务中发布，避免工作进程看到半份资料。恢复前后的二进制分片摘要保持一致；chunk_manifest 因私有路径变化重新计算。管理员应在独立测试账户定期做恢复演练。备份根密钥丢失后无法解密，不要把密钥和备份放在同一位置。
+
+人工确认的实体别名参与检索扩展，按账号隔离并排除版本失效的实体来源；不会把其他用户的实体带入召回。

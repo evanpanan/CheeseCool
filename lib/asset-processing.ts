@@ -15,7 +15,7 @@ export async function extractAsset(db:NonNullable<ReturnType<typeof serviceDatab
   try{const result=await processMedia(db,asset as OriginalAsset,record?.attributes?.diarize===true);if(result.waiting)throw new AssetError(result.reason,result.reason==='asr_unconfigured'?'音视频原件已保存，等待配置语音转写服务':'正在分段处理音视频',true);return {...result,asset};}
   catch(error){if(error instanceof AssetError)throw error;throw new AssetError('media_processing',error instanceof Error?error.message:'媒体处理失败');}
  }
- if(asset.filename.toLowerCase().endsWith('.pdf')){
+ if(asset.media_type==='application/pdf'||asset.filename.toLowerCase().endsWith('.pdf')){
   try{const result=await processPdf(db,asset as OriginalAsset,ocrPdf);if(result.waiting)throw new AssetError(result.reason,result.reason==='ocr_unconfigured'?'扫描页已保留，等待配置 OCR 服务':'正在逐页识别扫描文档',true);return {...result,asset};}
   catch(error){if(error instanceof AssetError)throw error;throw new AssetError('document_parse',error instanceof Error?error.message:'PDF 解析失败');}
  }
