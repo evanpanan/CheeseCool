@@ -18,6 +18,7 @@ export function OrbitCanvas(props: Props) {
   const frame = useRef<HTMLIFrameElement>(null);
   const latest = useRef(props);
   const locatedSave = useRef('');
+  const icons = useRef<Record<string,string>>({});
   latest.current = props;
   const document = useMemo(() => orbitDocument.replace('__PAYLOAD__',
     'window.__cheesecool=' + JSON.stringify(props.graph).replace(/</g, '\\u003c') + ';'), [props.graph]);
@@ -32,6 +33,7 @@ export function OrbitCanvas(props: Props) {
       query: value.query, paused: value.paused, focus: value.selected,
       saved: value.saved && `${value.saved.id}:${value.saved.event}` !== locatedSave.current ? value.saved : null,
     }, '*');
+    frame.current?.contentWindow?.postMessage({type:'cheesecool:icons',icons:icons.current},'*');
   }
 
   useEffect(() => {
@@ -57,6 +59,16 @@ export function OrbitCanvas(props: Props) {
     window.addEventListener('message', receive);
     return () => window.removeEventListener('message', receive);
   }, []);
+
+  useEffect(()=>{
+    const controller=new AbortController();let alive=true;
+    const domains=new Map<string,string[]>();
+    for(const node of props.graph.nodes){if(node.record_type&&node.record_type!=='web')continue;try{const origin=new URL(node.final_url||node.original_url).origin;if(origin==='null')continue;const ids=domains.get(origin)||[];ids.push(node.id);domains.set(origin,ids);}catch{/* personal records use cheese */}}
+    const queue=[...domains.values()];
+    async function worker(){while(queue.length&&!controller.signal.aborted){const ids=queue.shift()!;try{const response=await fetch('/api/site-icon?id='+encodeURIComponent(ids[0]),{signal:controller.signal});if(!response.ok||response.status===204||response.headers.get('content-type')!=='image/png')continue;const blob=await response.blob();if(blob.size>65536)continue;const value=await new Promise<string>((resolve,reject)=>{const reader=new FileReader();reader.onload=()=>resolve(String(reader.result));reader.onerror=()=>reject(new Error('icon'));reader.readAsDataURL(blob);});if(!alive)return;for(const id of ids)icons.current[id]=value;frame.current?.contentWindow?.postMessage({type:'cheesecool:icons',icons:Object.fromEntries(ids.map(id=>[id,value]))},'*');}catch{/* keep the cheese fallback */}}}
+    void Promise.all(Array.from({length:Math.min(4,queue.length)},()=>worker()));
+    return()=>{alive=false;controller.abort();};
+  },[props.graph]);
 
   useEffect(synchronize, [props.night, props.query, props.paused, props.selected, props.saved]);
   return <iframe ref={frame} title="芝士库" className="orbit-library-frame"

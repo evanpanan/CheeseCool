@@ -72,10 +72,10 @@ export async function readPublic(input: URL, accepts = 'text/html,application/xh
 }
 
 /** DNS-pinned stream; every redirect is revalidated before any bytes are consumed. */
-export async function openPublicStream(input:URL){
- const signal=AbortSignal.timeout(120000);let url=input;
+export async function openPublicStream(input:URL,options:{timeoutMs?:number;accept?:string}={}){
+ const signal=AbortSignal.timeout(options.timeoutMs||120000);let url=input;
  for(let hop=0;hop<=5;hop++){url=webUrl(url.href);const hostname=url.hostname.replace(/^\[|\]$/g,'');let timer:ReturnType<typeof setTimeout>|undefined;const addresses=await Promise.race([lookup(hostname,{all:true}),new Promise<never>((_,reject)=>{timer=setTimeout(()=>reject(new Error('DNS 超时')),2500);})]).finally(()=>clearTimeout(timer));if(!addresses.length||addresses.some(a=>!isPublicAddress(a.address)))throw new Error('链接必须指向公开网络');const {address,family}=addresses[0];
- const response=await new Promise<http.IncomingMessage>((resolve,reject)=>{const req=(url.protocol==='https:'?https:http).get(url,{agent:false,family,signal,lookup:(_h,_o,cb)=>cb(null,address,family),headers:{'User-Agent':'CheeseCool/1.0',Accept:'application/pdf,audio/*,video/*,text/html;q=0.5','Accept-Encoding':'identity'}},resolve);req.on('error',reject);});
+ const response=await new Promise<http.IncomingMessage>((resolve,reject)=>{const req=(url.protocol==='https:'?https:http).get(url,{agent:false,family,signal,lookup:(_h,_o,cb)=>cb(null,address,family),headers:{'User-Agent':'CheeseCool/1.0',Accept:options.accept||'application/pdf,audio/*,video/*,text/html;q=0.5','Accept-Encoding':'identity'}},resolve);req.on('error',reject);});
  if([301,302,303,307,308].includes(response.statusCode||0)&&response.headers.location){response.destroy();url=new URL(response.headers.location,url);continue;}if((response.statusCode||0)<200||(response.statusCode||0)>=300||response.headers['content-encoding']&&response.headers['content-encoding']!=='identity'){response.destroy();throw new Error('公开来源暂不可读取');}return {url,response};
  }throw new Error('链接重定向次数过多');
 }

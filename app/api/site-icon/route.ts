@@ -1,0 +1,6 @@
+import {unstable_cache} from 'next/cache';
+import {apiUser,apiFailure,bookmarkId,ApiError} from '@/lib/knowledge-api';
+import {fetchSiteIcon,siteOrigin} from '@/lib/site-icons';
+const cachedIcon=unstable_cache(async(origin:string)=>{const value=await fetchSiteIcon(origin);if(!value)throw new Error('Icon unavailable');return value;},['cheesecool-site-icons-v1'],{revalidate:604800});
+export const maxDuration=30;
+export async function GET(request:Request){try{const {db}=await apiUser(request),id=bookmarkId(new URL(request.url).searchParams.get('id'));const {data,error}=await db.from('bookmarks').select('original_url,final_url,record_type').eq('id',id).is('deleted_at',null).maybeSingle();if(error)throw error;if(!data)throw new ApiError(404,'收藏不存在');const origin=siteOrigin(data.final_url||data.original_url,data.record_type);if(!origin)return new Response(null,{status:204});const icon=await cachedIcon(origin).catch(()=>null);if(!icon)return new Response(null,{status:204,headers:{'Cache-Control':'private,max-age=3600'}});return new Response(new Uint8Array(Buffer.from(icon,'base64')),{headers:{'Content-Type':'image/png','Cache-Control':'private,max-age=86400','X-Content-Type-Options':'nosniff'}});}catch(e){return apiFailure(e);}}

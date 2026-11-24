@@ -9,7 +9,7 @@ const titles=['Bencho — Interactive React UI Components & Micro-interactions',
 
 test('display aliases preserve source titles and meaningful hyphens, with no shortening of personal records',()=>{
  assert.equal(displayTitle(titles[0]),'Bencho');
- assert.equal(displayTitle(titles[3]),'Motion Prompt');
+ assert.equal(displayTitle(titles[3]),'Motion Prompt');assert.equal(displayTitle('Motion Prompt|AIに頼む名前のライブラリ'),'Motion Prompt');
  assert.equal(displayTitle('GPT-5 2026-11-24'),'GPT-5 2026-11-24');
  assert.equal(displayTitle('第一章 — 原件保护','note'),'第一章 — 原件保护');
  const graph=buildNetwork(titles.map((title,i)=>({id:String(i),title,original_url:'https://example.org/'+i,final_url:null,platform:'web',summary:'',ai_summary:null,tags:['设计'],status:'indexed'})),[]);
@@ -34,6 +34,9 @@ test('actual canvas labels fit mobile edges, avoid one another and keep full-tit
   try{
    assert.deepEqual(errors,[]);
    const w=dom.window;
+   for(const node of graph.nodes){const wrapped=w.eval('graphLabel(byId.get('+JSON.stringify(node.id)+'),142)') as {lines:string[];text:string};assert.equal(wrapped.lines.join('').replace(/\s/gu,''),node.display_title.replace(/\s/gu,''),'wrapping must retain every title character');assert(!wrapped.text.endsWith('…'));}
+   w.eval("updateNodeTooltip(byId.get('0'),{x:100,y:100})");assert.equal(w.document.querySelector('#node-tooltip strong')!.textContent,titles[0]);
+
    w.eval('frame(performance.now())');
    const labels=drawn.filter(d=>d.text.length>1);
    assert.ok(labels.length>0,'titles remain discoverable');
