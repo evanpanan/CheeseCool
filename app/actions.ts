@@ -5,7 +5,7 @@ import { redirect } from 'next/navigation';
 import { after } from 'next/server';
 import { database } from '@/lib/supabase';
 import { canonical, identify, pastedUrl } from '@/lib/urls';
-import { retrievalQuery } from '@/lib/knowledge-content';
+import { expandRetrievalQuery } from '@/lib/knowledge-retrieval';
 import { embed } from '@/lib/ai';
 import { siteAiConfig } from '@/lib/site-ai';
 
@@ -90,7 +90,7 @@ export async function submitWorkspace(_state: WorkspaceResult, form: FormData): 
   const config = await siteAiConfig().catch(() => null);
   const vector = config?.embeddingKey ? await embed(query, config.embeddingKey).catch(() => null) : null;
   const { data, error } = await db.rpc('search_bookmarks', {
-    query_text: retrievalQuery(query), query_embedding: vector ? JSON.stringify(vector) : null,
+    query_text: expandRetrievalQuery(query), query_embedding: vector ? JSON.stringify(vector) : null,
   });
   if (error) return { kind: 'search', error: '这次没能完成搜索，请稍后再试。' };
   const ids = (data ?? []).map((item: { id: string }) => item.id);
@@ -103,7 +103,7 @@ export async function submitWorkspace(_state: WorkspaceResult, form: FormData): 
   const idList = ids.join(',');
   for (let offset = 0; ; offset += 500) {
     const { data: links, error: edgeError } = await db.from('bookmark_edges')
-      .select('source_id,target_id,score')
+      .select('source_id,target_id,score,kind')
       .or(`source_id.in.(${idList}),target_id.in.(${idList})`)
       .order('source_id').order('target_id').range(offset, offset + 499);
     if (edgeError) return { kind: 'search', error: '关联暂时没能加载，请再试一次。' };

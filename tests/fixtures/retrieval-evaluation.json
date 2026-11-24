@@ -1,0 +1,20 @@
+{
+  "description": "Synthetic regression set. Measures lexical/fusion plumbing, not production semantic model quality.",
+  "documents": [
+    {"key":"ui","title":"界面组件","tags":["界面组件"],"content":"界面组件库提供按钮、输入框和数据表格。保存完成后出现短暂提示，让使用者明确操作结果。"},
+    {"key":"motion","title":"交互动画","tags":["交互动画"],"content":"交互动画可以在展开时平滑过渡，并为减少动态效果的用户保留直接切换选项。"},
+    {"key":"archive","title":"原件保护","tags":["知识管理"],"content":"原文归档需要保留完整材料、来源地址和内容版本。模型摘要不能替代原始文件。"},
+    {"key":"vector","title":"向量检索","tags":["检索"],"content":"向量检索通过语义相似发现关键词不同的材料，混合检索结合关键词结果和向量结果。"},
+    {"key":"meeting","title":"会议逐字稿","tags":["会议"],"content":"会议逐字稿保留说话人、时间和完整发言，长录音分段转写后需要检查完整覆盖范围。"},
+    {"key":"diary","title":"日记日期","tags":["日记"],"content":"日记保存使用者选择的日期和时区，日期无效时应拒绝写入，不能默默改成当天。"}
+  ],
+  "queries": [
+    {"question":"UI组件","relevant":["ui"]},
+    {"question":"动效","relevant":["motion"]},
+    {"question":"如何归档原文","relevant":["archive"]},
+    {"question":"混合检索","relevant":["vector"]},
+    {"question":"会议逐字稿","relevant":["meeting"]},
+    {"question":"日记时区","relevant":["diary"]},
+    {"question":"火星海鲜菜单","relevant":[]}
+  ]
+}

@@ -44,6 +44,16 @@ test('actual canvas labels fit mobile edges, avoid one another and keep full-tit
    drawn.length=0;w.eval("hover=byId.get('0');frame(performance.now())");assert.ok(drawn.some(d=>d.text==='Bencho'),'focused title has priority');
    w.eval("query='micro-interactions';updateCount()");assert.equal(w.document.querySelector('#count')!.textContent,'1 个节点','search still sees removed tagline');
    w.eval("query='';show(byId.get('0'))");assert.ok(w.document.querySelector('#panel h2')!.getAttribute('title')===titles[0]);
+   w.eval("detailTab='relations';renderPanel()");
+   const evidenceButton=w.document.querySelector<HTMLButtonElement>('[data-evidence]');assert.ok(evidenceButton);evidenceButton.click();
+   const token=w.eval('relationView.token');assert.ok(w.document.querySelector('.detail-viewport')!.textContent!.includes('正在对照'));
+   const data={basis:{reason:'共同主题：界面组件'},sources:[{id:'0',title:titles[0],archive_url:'/document/0'}],analysis:{kind:'related',reason:'仅根据片段的 AI 建议。'.repeat(150),evidence:[{source_id:'0',quote:'逐字原文证据，保留来源。'}]}};
+   w.dispatchEvent(new w.MessageEvent('message',{source:w as unknown as Window,data:{type:'cheesecool:relation-result',token:'stale',data}}));assert.ok(w.document.querySelector('.detail-viewport')!.textContent!.includes('正在对照'));
+   w.dispatchEvent(new w.MessageEvent('message',{source:w as unknown as Window,data:{type:'cheesecool:relation-result',token,data}}));assert.ok(w.document.querySelector('.detail-viewport')!.textContent!.includes('共同主题'));
+   assert.equal(w.document.querySelector('[data-tab="relations"]')!.getAttribute('aria-pressed'),'true');
+   assert.equal(w.getComputedStyle(w.document.querySelector('.detail-viewport')!).overflow,'clip');
+   assert.ok(w.document.querySelector('[data-page="1"]')!.hasAttribute('hidden')===false,'long explanations paginate');
+   (w.document.querySelector('[data-relation-back]') as HTMLButtonElement).click();assert.ok(w.document.querySelector('[data-evidence]'));
    assert.deepEqual(errors,[]);
   }finally{dom.window.close();}
  }
