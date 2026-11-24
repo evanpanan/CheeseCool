@@ -41,8 +41,8 @@ export function ThemeSwitch() {
   function toggleAppearance() {
     const next = currentAppearance() === 'light' ? 'dark' : 'light';
     applyAppearance(next);
-    try { localStorage.setItem(appearanceKey, next); } catch { /* The preference still applies in this tab. */ }
     window.dispatchEvent(new Event(appearanceEvent));
+    try { localStorage.setItem(appearanceKey, next); } catch { /* The preference still applies in this tab. */ }
   }
 
   return <button type="button" className="appearance-switch header-control" role="switch" aria-checked={theme === 'dark'}

@@ -82,3 +82,33 @@ test('initial theme handshake reveals the graph even while a desktop browser sus
   assert(messages.some((m:any)=>m.type==='cheesecool:painted'),'parent must reveal the graph before RAF is available');
  }finally{dom.window.close();}
 });
+
+test('theme changes paint synchronously even with RAF suspended and retain the camera on rapid toggles',()=>{
+ let backgrounds=0,arcs=0;const errors:string[]=[];
+ const context=new Proxy({createRadialGradient:()=>({addColorStop(){}}),createPattern:()=>null,measureText:()=>({width:20}),drawImage(){backgrounds++;},arc(){arcs++;}}, {get:(value,key)=>key in value?value[key as keyof typeof value]:()=>{}});
+ const graph=buildNetwork([{id:'saved',title:'Saved knowledge',original_url:'https://example.org/saved',final_url:null,platform:'web',summary:'Saved source',ai_summary:null,tags:['设计'],status:'indexed'}],[]);
+ const console=new VirtualConsole();console.on('jsdomError',e=>{if(!('type' in e)||e.type!=='css-parsing')errors.push(e.message);});
+ const dom=new JSDOM(orbitDocument.replace('__PAYLOAD__','window.__cheesecool='+JSON.stringify(graph)+';'),{runScripts:'dangerously',virtualConsole:console,beforeParse(win){
+  win.matchMedia=()=>({matches:false}) as MediaQueryList;win.requestAnimationFrame=()=>0;win.cancelAnimationFrame=()=>{};
+  win.HTMLCanvasElement.prototype.getContext=(()=>context) as any;
+  Object.defineProperty(win.HTMLCanvasElement.prototype,'clientWidth',{get:()=>1440});Object.defineProperty(win.HTMLCanvasElement.prototype,'clientHeight',{get:()=>900});
+ }});
+ try{
+  const win=dom.window;win.eval('manualCamera=true;scale=.65;ox=72;oy=-31');const camera=win.eval('[scale,ox,oy].join()');
+  for(const mode of ['light','dark','light','dark','light']){
+   const before=backgrounds,oldArcs=arcs;
+   win.dispatchEvent(new win.MessageEvent('message',{source:win as unknown as Window,data:{type:'cheesecool:state',mode,paused:true,query:'',focus:'',saved:null}}));
+   assert.equal(win.document.documentElement.dataset.theme,mode);assert(backgrounds>before,'background repaints without waiting for RAF');assert(arcs>oldArcs,'nodes repaint in the same task');assert.equal(win.eval('[scale,ox,oy].join()'),camera);
+  }
+  win.dispatchEvent(new win.MessageEvent('message',{source:win as unknown as Window,data:{type:'cheesecool:state',mode:'light',paused:false,query:'',focus:'',saved:{id:'saved',event:1}}}));
+  assert.equal(win.eval('selected'),null);assert.equal(win.document.querySelector('#panel')!.hasAttribute('hidden'),true);assert.equal(win.eval("arrivalProgress('saved',180,620)"),0);
+  win.eval('cameraTween=null');const originalTarget=win.eval("[byId.get('saved').tx,byId.get('saved').ty].join()");
+  const updated=buildNetwork([{id:'saved',title:'Saved knowledge',original_url:'https://example.org/saved',final_url:null,platform:'web',summary:'Saved source',ai_summary:null,tags:['设计'],status:'indexed'},{id:'related',title:'Related knowledge',original_url:'https://example.org/related',final_url:null,platform:'web',summary:'Related source',ai_summary:null,tags:['设计'],status:'indexed'}],[]);
+  const sendGraph=()=>win.dispatchEvent(new win.MessageEvent('message',{source:win as unknown as Window,data:{type:'cheesecool:graph',graph:updated}}));sendGraph();
+  assert.equal(win.eval('links.length'),1);assert.equal(win.eval('edgeBirths.size'),1,'late real relation must grow after save');
+  assert.equal(win.eval('[scale,ox,oy].join()'),camera);assert.equal(win.eval("[byId.get('saved').tx,byId.get('saved').ty].join()"),originalTarget);
+  const started=win.eval("[...edgeBirths.values()][0].started");sendGraph();assert.equal(win.eval("[...edgeBirths.values()][0].started"),started,'unchanged refresh must not restart growth');
+  assert.equal(win.eval('nodes.length'),2);
+  assert.deepEqual(errors,[]);
+ }finally{dom.window.close();}
+});

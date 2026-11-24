@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { orbitDocument } from '@/lib/orbit-document';
 import type { buildNetwork } from '@/lib/knowledge-network';
 
@@ -20,16 +20,22 @@ export function OrbitCanvas(props: Props) {
   const locatedSave = useRef('');
   const icons = useRef<Record<string,string>>({});
   latest.current = props;
-  const document = useMemo(() => orbitDocument.replace('__PAYLOAD__',
-    'window.__cheesecool=' + JSON.stringify(props.graph).replace(/</g, '\\u003c') + ';'), [props.graph]);
+  // Keep one iframe alive while metadata and inferred links arrive.
+  const [document] = useState(() => orbitDocument.replace('__PAYLOAD__',
+    'window.__cheesecool=' + JSON.stringify(props.graph).replace(/</g, '\\u003c') + ';'));
+  const sentGraph = useRef<Props['graph'] | null>(null);
   const currentDocument = useRef(document);
   currentDocument.current = document;
   const [paintedDocument, setPaintedDocument] = useState('');
 
   function synchronize() {
     const value = latest.current;
+    if(sentGraph.current!==value.graph){
+      frame.current?.contentWindow?.postMessage({type:'cheesecool:graph',graph:value.graph},'*');
+      sentGraph.current=value.graph;
+    }
     frame.current?.contentWindow?.postMessage({
-      type: 'cheesecool:state', mode: value.night ? 'dark' : 'light',
+      type: 'cheesecool:state', mode: window.document.documentElement.dataset.theme === 'dark' ? 'dark' : 'light',
       query: value.query, paused: value.paused, focus: value.selected,
       saved: value.saved && `${value.saved.id}:${value.saved.event}` !== locatedSave.current ? value.saved : null,
     }, '*');
@@ -39,7 +45,7 @@ export function OrbitCanvas(props: Props) {
   useEffect(() => {
     function receive(event: MessageEvent) {
       if (event.source !== frame.current?.contentWindow) return;
-      if (event.data?.type === 'cheesecool:ready') synchronize();
+      if (event.data?.type === 'cheesecool:ready') {sentGraph.current=null;synchronize();}
       if (event.data?.type === 'cheesecool:painted') setPaintedDocument(currentDocument.current);
       if (event.data?.type === 'cheesecool:located' && latest.current.saved && event.data.id === latest.current.saved?.id && event.data.event === latest.current.saved.event) {
         locatedSave.current = `${event.data.id}:${event.data.event}`;
@@ -57,7 +63,14 @@ export function OrbitCanvas(props: Props) {
       if (event.data?.type === 'cheesecool:select' && typeof event.data.id === 'string') latest.current.onSelect(event.data.id);
     }
     window.addEventListener('message', receive);
-    return () => window.removeEventListener('message', receive);
+    // Theme chrome changes immediately; do not wait for a React passive effect.
+    window.addEventListener('cheesecool:appearance', synchronize);
+    window.addEventListener('storage', synchronize);
+    return () => {
+      window.removeEventListener('message', receive);
+      window.removeEventListener('cheesecool:appearance', synchronize);
+      window.removeEventListener('storage', synchronize);
+    };
   }, []);
 
   useEffect(()=>{
@@ -78,7 +91,7 @@ export function OrbitCanvas(props: Props) {
     return()=>{alive=false;controller.abort();};
   },[props.graph,props.selected]);
 
-  useEffect(synchronize, [props.night, props.query, props.paused, props.selected, props.saved]);
+  useEffect(synchronize, [props.graph, props.night, props.query, props.paused, props.selected, props.saved]);
   return <iframe ref={frame} title="芝士库" className="orbit-library-frame"
     style={{ visibility: paintedDocument === document ? 'visible' : 'hidden' }}
     sandbox="allow-scripts allow-popups allow-popups-to-escape-sandbox" srcDoc={document} onLoad={synchronize}/>;
