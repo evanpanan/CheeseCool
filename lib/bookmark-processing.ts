@@ -14,6 +14,7 @@ export async function processBookmark(db:Client,id:string,onStage:(stage:string)
  if(error||!row)throw new ProcessingError('not_found','收藏不存在或已删除',false);
  let source=row;
  await onStage('extract');
+ if(source.record_type==='web'&&!source.content&&!source.source_hash){const {captureLinkedOriginal}=await import('./linked-originals');const captured=await captureLinkedOriginal(webUrl(source.original_url),row.user_id,id).catch(error=>{if(/原件/.test(error instanceof Error?error.message:''))throw new ProcessingError('original_capture',error.message);return false;});if(captured){const result=await db.from('bookmarks').select('*').eq('id',id).eq('user_id',row.user_id).single();if(result.error||!result.data)throw new ProcessingError('original_read','原件已保存，记录暂不可读');source=result.data;}}
  if((!source.content||!source.source_hash)&&['document','audio','video'].includes(source.record_type)){
   let result;
   try{result=await extractAsset(db,id,row.user_id,source.record_type);}catch(error){if(error instanceof AssetError){if(error.waiting){await db.from('bookmarks').update({attributes:{...source.attributes,processing_wait:error.code}}).eq('id',id).eq('user_id',row.user_id);return {waiting:true,reason:error.code};}throw new ProcessingError(error.code,error.message,!['document_parse','asr_empty','ocr_empty','ocr_too_large'].includes(error.code));}throw error;}

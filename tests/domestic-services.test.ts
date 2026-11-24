@@ -33,3 +33,5 @@ test('vectors from different providers never share a cosine comparison space',as
  assert.equal((await db.query('select * from public.hybrid_knowledge_candidates_v2($1,$2::extensions.vector,$3)',['zznomatch',embedding,'aliyun:text-embedding-v4:1536'])).rows.length,1);
  }finally{await db.close();}
 });
+
+test('terminal ASR failures are distinguishable from transient polling errors for safe task resubmission',async()=>{const previous=globalThis.fetch;try{globalThis.fetch=async()=>Response.json({output:{task_status:'FAILED'}});const {pollAliyunTranscript,TerminalAsrError}=await import('../lib/domestic-ai');await assert.rejects(pollAliyunTranscript('test',{provider:'aliyun',host:'dashscope.aliyuncs.com',key:'test',model:'paraformer-v2'}),TerminalAsrError);globalThis.fetch=async()=>new Response('',{status:503});await assert.rejects(pollAliyunTranscript('test',{provider:'aliyun',host:'dashscope.aliyuncs.com',key:'test',model:'paraformer-v2'}),error=>!(error instanceof TerminalAsrError));}finally{globalThis.fetch=previous;}});

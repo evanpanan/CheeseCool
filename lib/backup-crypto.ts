@@ -1,0 +1,6 @@
+import {createCipheriv,createDecipheriv,createHash,hkdfSync,randomBytes} from 'node:crypto';
+import {gzipSync,gunzipSync} from 'node:zlib';
+export const backupHash=(value:Uint8Array)=>createHash('sha256').update(value).digest('hex');
+function derive(root:string,id:string){if(!/^[0-9a-f]{64}$/i.test(root))throw new Error('备份恢复密钥无效');return Buffer.from(hkdfSync('sha256',Buffer.from(root,'hex'),id,'cheesecool:backup:v1',32));}
+export function encryptBackup(value:Buffer,root:string,id:string,key:string){const nonce=randomBytes(12),cipher=createCipheriv('aes-256-gcm',derive(root,id),nonce);cipher.setAAD(Buffer.from(id+'/'+key));const bytes=Buffer.concat([cipher.update(gzipSync(value)),cipher.final()]);return Buffer.concat([Buffer.from('CCB1'),nonce,cipher.getAuthTag(),bytes]);}
+export function decryptBackup(value:Buffer,root:string,id:string,key:string){if(value.subarray(0,4).toString()!=='CCB1')throw new Error('备份格式无效');const cipher=createDecipheriv('aes-256-gcm',derive(root,id),value.subarray(4,16));cipher.setAAD(Buffer.from(id+'/'+key));cipher.setAuthTag(value.subarray(16,32));return gunzipSync(Buffer.concat([cipher.update(value.subarray(32)),cipher.final()]),{maxOutputLength:32000000});}

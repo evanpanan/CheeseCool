@@ -3,6 +3,10 @@
     {
       "path": "/api/internal/knowledge-worker",
       "schedule": "* * * * *"
+    },
+    {
+      "path": "/api/internal/maintenance",
+      "schedule": "*/5 * * * *"
     }
   ],
   "regions": [

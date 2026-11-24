@@ -3,7 +3,7 @@ import {siteAiConfig} from '@/lib/site-ai';
 import {serviceDatabase} from '@/lib/supabase';
 import {analyzeSources} from '@/lib/ai';
 export const maxDuration=60;
-export async function GET(request:Request){try{const {db}=await apiUser(request);const [insights,entities]=await Promise.all([db.from('knowledge_insights').select('*').order('created_at',{ascending:false}).limit(50),db.from('knowledge_entities').select('*').order('confirmed_at',{ascending:false}).limit(100)]);if(insights.error||entities.error)throw insights.error||entities.error;return Response.json({insights:insights.data,entities:entities.data},{headers:{'Cache-Control':'no-store'}});}catch(e){return apiFailure(e);}}
+export async function GET(request:Request){try{const {db}=await apiUser(request);const [insights,entities]=await Promise.all([db.from('knowledge_insights').select('*').order('created_at',{ascending:false}).limit(50),db.from('knowledge_entities').select('*').is('merged_into',null).order('confirmed_at',{ascending:false}).limit(100)]);if(insights.error||entities.error)throw insights.error||entities.error;return Response.json({insights:insights.data,entities:entities.data},{headers:{'Cache-Control':'no-store'}});}catch(e){return apiFailure(e);}}
 export async function POST(request:Request){try{
  const {db,user}=await apiUser(request,true),body=await jsonBody(request),service=serviceDatabase();if(!service)throw new ApiError(503,'分析服务未配置');
  if(body.operation==='import_draft'||body.operation==='import_entity'){
@@ -15,7 +15,7 @@ export async function POST(request:Request){try{
    const {error}=await service.from('knowledge_entities').upsert({user_id:user.id,name:value.name.normalize('NFKC').trim().slice(0,120),kind:value.kind,description:value.description.slice(0,500),source_ids:ids,origin:'import'},{onConflict:'user_id,name,kind',ignoreDuplicates:true});if(error)throw error;
   }else{
    const evidence=(Array.isArray(value.evidence)?value.evidence:[]).flatMap((entry:{source_id:string;quote:string})=>{const parent=parents.find(p=>p.id===entry.source_id);return parent&&typeof entry.quote==='string'&&entry.quote.length>=8&&parent.content?.includes(entry.quote)?[{source_id:parent.id,source_hash:parent.source_hash,quote:entry.quote}]:[];});
-   const {error}=await service.from('knowledge_insights').insert({user_id:user.id,title:String(value.title||'导入分析').slice(0,200),body:String(value.body||'').slice(0,4000),source_ids:ids,evidence,entities:[],provider:String(value.provider||'unknown').slice(0,40),model:String(value.model||'unknown').slice(0,100),state:'draft',origin:'import'});if(error)throw error;
+   const {error}=await service.from('knowledge_insights').insert({user_id:user.id,title:String(value.title||'导入分析').slice(0,200),body:String(value.body||'').slice(0,4000),source_ids:ids,source_versions:Object.fromEntries(parents.map(p=>[p.id,p.source_hash])),evidence,entities:[],provider:String(value.provider||'unknown').slice(0,40),model:String(value.model||'unknown').slice(0,100),state:'draft',origin:'import'});if(error)throw error;
   }
   return Response.json({ok:true});
  }
@@ -27,7 +27,7 @@ export async function POST(request:Request){try{
   const {data:allowed}=await db.rpc('consume_knowledge_quota',{action_key:'answer'});if(!allowed)throw new ApiError(429,'本小时分析与问答额度已用完');
   const config=await siteAiConfig();if(!config.chat)throw new ApiError(503,'请先配置模型');
   const result=await analyzeSources(sources.map(s=>({id:s.id,title:s.title,content:s.content,hash:s.source_hash})),String(body.question||'提炼共识、差异与可复用观点').slice(0,500),config.chat);
-  const {data,error:writeError}=await service.from('knowledge_insights').insert({user_id:user.id,source_ids:ids,provider:config.chat.provider,model:config.chat.model,...result}).select('id').single();if(writeError)throw writeError;
+  const {data,error:writeError}=await service.from('knowledge_insights').insert({user_id:user.id,source_ids:ids,source_versions:Object.fromEntries(sources.map(s=>[s.id,s.source_hash])),provider:config.chat.provider,model:config.chat.model,...result}).select('id').single();if(writeError)throw writeError;
   return Response.json({ok:true,id:data.id,state:'draft'});
  }
  const id=bookmarkId(body.id);const {data:insight,error}=await db.from('knowledge_insights').select('*').eq('id',id).maybeSingle();if(error)throw error;if(!insight)throw new ApiError(404,'分析不存在');
@@ -37,7 +37,7 @@ export async function POST(request:Request){try{
  if(body.operation!=='confirm')throw new ApiError(400,'未知操作');
  if(insight.state!=='draft')throw new ApiError(409,'这份分析已处理');
  const {data:sources}=await db.from('bookmarks').select('id,source_hash').is('deleted_at',null).in('id',insight.source_ids);
- if(!sources||sources.length!==insight.source_ids.length||insight.evidence.some((e:{source_id:string;source_hash:string})=>!sources.some(s=>s.id===e.source_id&&s.source_hash===e.source_hash)))throw new ApiError(409,'来源已改变，请重新分析后确认');
+ if(!sources||sources.length!==insight.source_ids.length||sources.some(s=>insight.source_versions?.[s.id]!==s.source_hash)||insight.evidence.some((e:{source_id:string;source_hash:string})=>!sources.some(s=>s.id===e.source_id&&s.source_hash===e.source_hash)))throw new ApiError(409,'来源已改变，请重新分析后确认');
  // Publication and confirmed entity writes are performed atomically with ownership checks in SQL.
  const {data,error:confirmError}=await db.rpc('confirm_knowledge_insight',{insight_id:id});if(confirmError)throw confirmError;if(!data)throw new ApiError(409,'这份分析已处理');
  return Response.json({ok:true,bookmark_id:data});

@@ -8,7 +8,7 @@ import ffmpegPath from 'ffmpeg-static';
 import type {serviceDatabase} from './supabase';
 import {internalMediaSource,type OriginalAsset} from './original-files';
 import {siteAiConfig} from './site-ai';
-import {submitAliyunTranscript,pollAliyunTranscript,validateAliyunTranscript} from './domestic-ai';
+import {submitAliyunTranscript,pollAliyunTranscript,validateAliyunTranscript,TerminalAsrError} from './domestic-ai';
 const run=promisify(execFile),segmentSeconds=300;
 export type TranscriptSegment={start:number;end:number;speaker:string|null;text:string};
 export function parseMediaDuration(stderr:string){
@@ -64,7 +64,7 @@ export async function processMedia(db:NonNullable<ReturnType<typeof serviceDatab
   if(service.provider==='aliyun'){
    if(prepared.remote_task_id){
     if(prepared.provider!==service.provider)throw new Error('当前分段的服务已切换，请恢复原服务后继续');
-    const result=await pollAliyunTranscript(prepared.remote_task_id,service);if(!result.pending)segments=validateAliyunTranscript(result.value,prepared.start_seconds,prepared.duration_seconds,prepared.ordinal,diarize,prepared.direct_original);
+    try{if(Date.now()-Date.parse(prepared.updated_at)>86400000)throw new TerminalAsrError('转写任务已超时，重试时重新提交');const result=await pollAliyunTranscript(prepared.remote_task_id,service);if(!result.pending)segments=validateAliyunTranscript(result.value,prepared.start_seconds,prepared.duration_seconds,prepared.ordinal,diarize,prepared.direct_original);}catch(error){if(error instanceof TerminalAsrError){const cleared=await db.from('knowledge_asset_steps').update({remote_task_id:null,updated_at:new Date().toISOString()}).eq('id',prepared.id).eq('remote_task_id',prepared.remote_task_id);if(cleared.error)throw new Error('失败任务重置未完成');}throw error;}
    }else{
     const source=internalMediaSource(asset.id,prepared.direct_original?undefined:prepared.id,86400);const task=await submitAliyunTranscript(source,diarize,service);
     const {error}=await db.from('knowledge_asset_steps').update({remote_task_id:task,provider:service.provider,model,updated_at:new Date().toISOString()}).eq('id',prepared.id);if(error)throw new Error('转写任务编号保存失败');
