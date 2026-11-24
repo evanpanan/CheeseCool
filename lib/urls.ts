@@ -9,7 +9,7 @@ export function identify(url: URL): Platform {
   const matches = (domain: string) => host === domain || host.endsWith('.' + domain);
   if (matches('github.com')) return 'github';
   if (matches('x.com') || matches('twitter.com') || matches('t.co')) return 'x';
-  if (matches('xiaohongshu.com') || matches('xhslink.com')) return 'xiaohongshu';
+  if (matches('xiaohongshu.com') || matches('xhslink.com') || matches('xhslink.cn')) return 'xiaohongshu';
   if (matches('douyin.com') || matches('iesdouyin.com')) return 'douyin';
   return 'web';
 }

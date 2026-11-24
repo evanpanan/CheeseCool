@@ -66,6 +66,14 @@ export function OrbitCanvas(props: Props) {
       if (event.data?.type === 'cheesecool:located' && latest.current.saved && event.data.id === latest.current.saved?.id && event.data.event === latest.current.saved.event) {
         locatedSave.current = `${event.data.id}:${event.data.event}`;
       }
+      if(event.data?.type==='cheesecool:recapture'){
+        const item=latest.current.graph.nodes.find(n=>n.id===event.data.id);
+        if(!item||item.record_type&&item.record_type!=='web')return;
+        void fetch('/api/bookmarks',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:item.id,operation:item.source_hash?'recapture':'retry'})})
+          .then(async response=>{const result=await response.json();if(!response.ok)throw new Error(result.error||'暂时无法提交，请稍后重试');return result;})
+          .then(()=>{frame.current?.contentWindow?.postMessage({type:'cheesecool:recapture-result',id:item.id,ok:true,message:item.source_hash?'已提交，可在内容管理查看新版本':'已提交，正在重新读取'},'*');})
+          .catch(error=>{frame.current?.contentWindow?.postMessage({type:'cheesecool:recapture-result',id:item.id,ok:false,message:error.message},'*');});
+      }
       if (event.data?.type === 'cheesecool:relation') {
         const {source_id,target_id,token,analyze}=event.data;
         const graph=latest.current.graph;

@@ -49,8 +49,9 @@ export async function processBookmark(db:Client,id:string,onStage:(stage:string)
  }
  await onStage('organize');
  const {chat,embedding:embeddingKey}=await siteAiConfig();
- if(!source.ai_summary&&!chat)return {waiting:true,reason:'model_unconfigured'};
- if(!source.ai_summary&&chat){
+ const metadataOnly=source.attributes?.capture_level==='video_metadata_only';
+ if(!source.ai_summary&&!metadataOnly&&!chat)return {waiting:true,reason:'model_unconfigured'};
+ if(!source.ai_summary&&!metadataOnly&&chat){
   const archived=await db.from('bookmark_sources').select('truncated,metadata').eq('bookmark_id',id).eq('source_hash',source.source_hash).maybeSingle();
   if(archived.error)throw new ProcessingError('source_read','来源采集范围暂不可读');
   const captureLevel=archived.data?.metadata?.capture_level||source.attributes?.capture_level;

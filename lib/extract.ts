@@ -5,6 +5,7 @@ import { identify, webUrl } from './urls';
 import { readPublic } from './public-http';
 import {githubSource} from './github-source';
 import {structuredArticle,semanticArticle} from './structured-article';
+import {socialPage,youtubeSource,genericSocialShell} from './social-source';
 
 const clean = (value: string | null | undefined, size: number) =>
   (value ?? '').replace(/\s+/g, ' ').trim().slice(0, size);
@@ -22,10 +23,12 @@ export function extractHtml(html: string, url: URL) {
     const doc = dom.window.document;
     const meta = (key: string) =>
       doc.querySelector(`meta[property="${key}"],meta[name="${key}"]`)?.getAttribute('content');
+    const social=socialPage(doc,url);
+    if(social)return {...social,cover_url:social.cover_url?imageUrl(social.cover_url,url):null,capture:social.capture_scope,contentTruncated:social.source_truncated};
     const image = meta('og:image') || meta('twitter:image');
     const title = meta('og:title') || meta('twitter:title') || doc.title;
     const description = meta('og:description') || meta('twitter:description') || meta('description');
-    const blocked=/^(?:just a moment|access denied|attention required|security verification|verify you are human|sign in|log in|登录|安全验证|访问受限)/i.test(clean(title,240))||Boolean(doc.querySelector('input[type="password"]')&&clean(doc.body?.textContent,2000).length<500);
+    const blocked=genericSocialShell(clean(title,240),clean(description,1000),url)||/^(?:just a moment|access denied|attention required|security verification|verify you are human|sign in|log in|登录|安全验证|访问受限)/i.test(clean(title,240))||Boolean(doc.querySelector('input[type="password"]')&&clean(doc.body?.textContent,2000).length<500);
     const structured=blocked?null:structuredArticle(doc,url),semantic=blocked?'':semanticArticle(doc);
     const article = new Readability(doc, { maxElemsToParse: 25_000 }).parse();
     const chosen=structured&&structured.body.length>(article?.textContent?.length||0)*1.15?structured.body:article?.textContent||semantic;
@@ -43,13 +46,14 @@ export function extractHtml(html: string, url: URL) {
   }
 }
 
-async function specialized(url: URL) {
+async function specialized(url: URL,read=readPublic) {
   const platform = identify(url);
-  if(platform==='github')return githubSource(url);
+  if(platform==='github')return githubSource(url,read);
+  const video=await youtubeSource(url,read);if(video)return video;
   if (platform === 'x' && /\/status\/\d+/.test(url.pathname)) {
     const api = new URL('https://publish.twitter.com/oembed');
     api.search = new URLSearchParams({ url: url.href, omit_script: 'true' }).toString();
-    const { text } = await readPublic(api, 'application/json');
+    const { text } = await read(api, 'application/json');
     const data = JSON.parse(text);
     const dom = new JSDOM(typeof data.html === 'string' ? data.html : '');
     try {
@@ -61,10 +65,10 @@ async function specialized(url: URL) {
   return null;
 }
 
-export async function extract(input: URL,validators?:{etag?:string|null;lastModified?:string|null}) {
+export async function extract(input: URL,validators?:{etag?:string|null;lastModified?:string|null},read=readPublic) {
   const [page, originalExtra] = await Promise.all([
-    readPublic(input,undefined,identify(input)==='web'?validators:undefined).catch(() => null),
-    specialized(input).catch(() => null),
+    read(input,undefined,identify(input)==='web'?validators:undefined).catch(() => null),
+    specialized(input,read).catch(() => null),
   ]);
   const url = originalExtra ? input : page?.url ?? input;
   if(page?.notModified)return {notModified:true,source:null,data:null,final_url:url.href,platform:identify(url),completeness:'unchanged',etag:page.etag,lastModified:page.lastModified};
@@ -73,12 +77,12 @@ export async function extract(input: URL,validators?:{etag?:string|null;lastModi
     try { html = extractHtml(page.text, page.url); }
     catch { /* A public API response can still supply content. */ }
   }
-  const extra = originalExtra ?? (url.href !== input.href
-    ? await specialized(url).catch(() => null) : null);
+  const extra = html&&'capture_scope' in html ? html : originalExtra ?? (url.href !== input.href
+    ? await specialized(url,read).catch(() => null) : null);
   const platform = identify(url);
   // Social pages can expose only a login shell. Require platform metadata or a public embed.
-  const validHtml = html?.capture!=='blocked'&&html?.content && (platform === 'web' || platform === 'github' ||
-    (html.cover_url && html.title && html.summary));
+  const validHtml = !genericSocialShell(html?.title||'',html?.summary||'',url)&&html?.capture!=='blocked'&&html?.content && (platform === 'web' || platform === 'github' ||
+    (html.title && html.summary));
   const data = extra ? { ...extra, cover_url: html?.cover_url ?? extra.cover_url } : validHtml ? html : null;
   return {
     notModified:false,etag:page?.etag,lastModified:page?.lastModified,
