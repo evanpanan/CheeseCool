@@ -58,3 +58,24 @@ test('actual canvas labels fit mobile edges, avoid one another and keep full-tit
   }finally{dom.window.close();}
  }
 });
+
+test('initial theme handshake reveals the graph even while a desktop browser suspends hidden-frame animation',()=>{
+ const messages:unknown[]=[],errors:string[]=[];
+ const context=new Proxy({createRadialGradient:()=>({addColorStop(){}}),measureText:()=>({width:20})},{get:(value,key)=>key in value?value[key as keyof typeof value]:()=>{}});
+ const graph=buildNetwork([{id:'saved',title:'Saved knowledge',original_url:'https://example.org/saved',final_url:null,platform:'web',summary:'Saved source',ai_summary:null,tags:['设计'],status:'indexed'}],[]);
+ const console=new VirtualConsole();console.on('jsdomError',e=>{if(!('type' in e)||e.type!=='css-parsing')errors.push(e.message);});
+ const dom=new JSDOM(orbitDocument.replace('__PAYLOAD__','window.__cheesecool='+JSON.stringify(graph)+';'),{runScripts:'dangerously',virtualConsole:console,beforeParse(win){
+  win.matchMedia=()=>({matches:true}) as MediaQueryList;
+  // Chrome may suspend RAF until the parent removes visibility:hidden.
+  win.requestAnimationFrame=()=>0;win.cancelAnimationFrame=()=>{};
+  win.postMessage=(message:unknown)=>messages.push(message);
+  win.HTMLCanvasElement.prototype.getContext=(()=>context) as any;
+  Object.defineProperty(win.HTMLCanvasElement.prototype,'clientWidth',{get:()=>1440});Object.defineProperty(win.HTMLCanvasElement.prototype,'clientHeight',{get:()=>900});
+ }});
+ try{
+  const win=dom.window;
+  win.dispatchEvent(new win.MessageEvent('message',{source:win,data:{type:'cheesecool:state',mode:'light',paused:false,query:'',focus:'',saved:null}}));
+  assert.deepEqual(errors,[]);assert.equal(win.document.documentElement.dataset.theme,'light');
+  assert(messages.some((m:any)=>m.type==='cheesecool:painted'),'parent must reveal the graph before RAF is available');
+ }finally{dom.window.close();}
+});
