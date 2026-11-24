@@ -2,7 +2,7 @@ import {after} from 'next/server';
 import {apiUser,apiFailure,jsonBody,bookmarkId,ApiError} from '@/lib/knowledge-api';
 import {prepareRecord} from '@/lib/knowledge-records';
 import {runKnowledgeJobs} from '@/lib/knowledge-jobs';
-export const maxDuration=60;
+export const maxDuration=240;
 export async function POST(request:Request){try{
  const {db,user}=await apiUser(request,true);const record=prepareRecord(await jsonBody(request));
  const {data,error}=await db.rpc('create_knowledge_record',{record_kind:record.kind,record_title:record.title,record_content:record.content,record_raw:record.raw,record_attributes:record.attributes});

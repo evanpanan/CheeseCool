@@ -7,7 +7,7 @@ import { normalizeTags,validEvidence } from '@/lib/knowledge-content';
 import { canonical,identify,pastedUrl } from '@/lib/urls';
 import { runKnowledgeJobs } from '@/lib/knowledge-jobs';
 import { serviceDatabase } from '@/lib/supabase';
-export const maxDuration=60;
+export const maxDuration=240;
 export async function GET(request:Request){try{
  const {db}=await apiUser(request);const params=new URL(request.url).searchParams;
  if(params.get('format')==='export'){
