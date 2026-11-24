@@ -4,13 +4,14 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "npm run build:orbit-force && next build",
     "start": "next start",
     "typecheck": "tsc --noEmit",
     "test": "node --import tsx --test tests/*.test.ts",
     "eval:retrieval": "node --import tsx scripts/evaluate-knowledge.ts",
     "build:extension": "node scripts/build-browser-extension.mjs",
-    "bench:knowledge": "node --import tsx scripts/benchmark-knowledge.ts"
+    "bench:knowledge": "node --import tsx scripts/benchmark-knowledge.ts",
+    "build:orbit-force": "node scripts/build-orbit-force.mjs"
   },
   "dependencies": {
     "@mozilla/readability": "^0.6.0",
