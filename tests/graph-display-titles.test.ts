@@ -74,7 +74,7 @@ test('initial theme handshake reveals the graph even while a desktop browser sus
  }});
  try{
   const win=dom.window;
-  win.dispatchEvent(new win.MessageEvent('message',{source:win,data:{type:'cheesecool:state',mode:'light',paused:false,query:'',focus:'',saved:null}}));
+  win.dispatchEvent(new win.MessageEvent('message',{source:win as unknown as Window,data:{type:'cheesecool:state',mode:'light',paused:false,query:'',focus:'',saved:null}}));
   assert.deepEqual(errors,[]);assert.equal(win.document.documentElement.dataset.theme,'light');
   assert(messages.some((m:any)=>m.type==='cheesecool:painted'),'parent must reveal the graph before RAF is available');
  }finally{dom.window.close();}
