@@ -36,12 +36,13 @@ test('hybrid SQL fuses independent ranks, excludes foreign/deleted/stale sources
   const ids:string[]=[];
   for(const [i,row] of rows.entries()){
    const result=await db.query<{id:string}>("insert into public.bookmarks(user_id,original_url,canonical_url,platform,title,content,source_hash,embedding) values($1,$2,$2,'web',$3,$4,'version1',$5::extensions.vector) returning id",[row.who,'https://example.org/eval/'+i,row.title,row.content,row.embedding]);const id=result.rows[0].id;ids.push(id);
-   for(let ordinal=0;ordinal<(i===0?8:1);ordinal++)await db.query('insert into public.bookmark_chunks(user_id,bookmark_id,source_hash,ordinal,content,embedding) values($1,$2,\'version1\',$3,$4,$5::extensions.vector)',[row.who,id,ordinal,row.content+ordinal,row.embedding]);
+   for(let ordinal=0;ordinal<(i===0?150:1);ordinal++)await db.query('insert into public.bookmark_chunks(user_id,bookmark_id,source_hash,ordinal,content,embedding) values($1,$2,\'version1\',$3,$4,$5::extensions.vector)',[row.who,id,ordinal,row.content+ordinal,row.embedding]);
   }
   await db.exec(`set role authenticated;set request.jwt.claim.sub='${owner}';`);
-  const retrieved=await db.query<{bookmark_id:string;lexical_rank:number|null;semantic_rank:number|null}>('select * from public.hybrid_knowledge_candidates($1,$2::extensions.vector)',['组件',v(1,0)]);
+  const retrieved=await db.query<{bookmark_id:string;lexical_rank:number|null;semantic_rank:number|null}>('select * from public.hybrid_knowledge_candidates($1,$2::extensions.vector)',['组件 反馈',v(1,0)]);
+  assert.ok(retrieved.rows.some(r=>r.bookmark_id===ids[2]&&r.lexical_rank!==null),'long source cannot starve other lexical candidates');
   assert.ok(retrieved.rows.some(r=>r.bookmark_id===ids[1]&&r.lexical_rank===null&&r.semantic_rank!==null),'semantic-only recall');assert.ok(retrieved.rows.every(r=>r.bookmark_id!==ids[3]),'no foreign candidates');assert.ok(retrieved.rows.filter(r=>r.bookmark_id===ids[0]).length<=3,'candidate diversity before truncation');
-  const idsRanked=await db.query<{id:string}>('select * from public.search_bookmarks($1,$2::extensions.vector)',['组件',v(1,0)]);assert.equal(idsRanked.rows[0].id,ids[0],'a match in both channels beats either alone');
+  const idsRanked=await db.query<{id:string}>('select * from public.search_bookmarks($1,$2::extensions.vector)',['组件 反馈',v(1,0)]);assert.equal(idsRanked.rows[0].id,ids[0],'a match in both channels beats either alone');
   await assert.rejects(db.query("insert into public.bookmark_relation_analyses(user_id,source_id,target_id,source_hash,target_hash,kind,reason,evidence,provider,model) values($1,$2,$3,'version1','version1','related','forged','[]','test','test')",[owner,...ids.slice(0,2).sort()]),/permission denied/);
   await db.exec('reset role;');const pair=ids.slice(0,2).sort();await db.query("insert into public.bookmark_relation_analyses(user_id,source_id,target_id,source_hash,target_hash,kind,reason,evidence,provider,model) values($1,$2,$3,'version1','version1','related','test','[]','test','test')",[owner,...pair]);
   await db.exec(`set role authenticated;set request.jwt.claim.sub='${owner}';`);assert.equal((await db.query('select * from public.bookmark_relation_analyses')).rows.length,1);

@@ -40,13 +40,16 @@ export function AccountMenu({ email, avatarUrl, displayName, showAdmin, adminPag
   function animatePanel(entering: boolean) {
     const element = panel.current, button = trigger.current;
     if (!element || !button || typeof element.animate !== 'function' || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    const currentStyle = getComputedStyle(element);
+    const currentClip = currentStyle.clipPath;
+    const currentOpacity = currentStyle.opacity;
     surfaceAnimation.current?.cancel();
     const box = element.getBoundingClientRect(), anchor = button.getBoundingClientRect();
     const x = Math.max(22, Math.min(box.width - 22, anchor.left + anchor.width / 2 - box.left));
     const y = Math.max(22, Math.min(box.height - 22, anchor.top + anchor.height / 2 - box.top));
     const collapsed = `inset(${Math.max(0,y-22)}px ${Math.max(0,box.width-x-22)}px ${Math.max(0,box.height-y-22)}px ${Math.max(0,x-22)}px round 22px)`;
     const frames = [{clipPath:collapsed,opacity:0.3},{clipPath:'inset(0px 0px 0px 0px round 0px)',opacity:1}];
-    const animation = element.animate(entering ? frames : [...frames].reverse(), {duration:entering?420:220,easing:entering?'cubic-bezier(.16,1,.3,1)':'cubic-bezier(.4,0,1,1)',fill:'both'});
+    const animation = element.animate(entering ? frames : [{clipPath:currentClip && currentClip !== 'none' ? currentClip : frames[1].clipPath,opacity:Number(currentOpacity)||1},frames[0]], {duration:entering?420:220,easing:entering?'cubic-bezier(.16,1,.3,1)':'cubic-bezier(.4,0,1,1)',fill:'both'});
     surfaceAnimation.current = animation;
     if (entering) {
       animation.finished.then(()=>animation.cancel()).catch(()=>{});
