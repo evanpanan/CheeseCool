@@ -4,7 +4,7 @@ import {apiUser,apiFailure,bookmarkId,ApiError} from '@/lib/knowledge-api';
 import {serviceDatabase} from '@/lib/supabase';
 import {runKnowledgeJobs} from '@/lib/knowledge-jobs';
 import {originalResponse,type OriginalAsset} from '@/lib/original-files';
-export const maxDuration=240;
+export const maxDuration=800;
 export async function POST(request:Request){try{
  const {db,user}=await apiUser(request,true);if(Number(request.headers.get('content-length')||0)>3200000)throw new ApiError(413,'单个文件最多 3 MB');
  const form=await request.formData(),file=form.get('file');if(!(file instanceof File)||!file.size||file.size>3000000)throw new ApiError(400,'请选择 3 MB 以内的文件');
