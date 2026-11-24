@@ -3,6 +3,8 @@ import { Readability } from '@mozilla/readability';
 import { JSDOM } from 'jsdom';
 import { identify, webUrl } from './urls';
 import { readPublic } from './public-http';
+import {githubSource} from './github-source';
+import {structuredArticle,semanticArticle} from './structured-article';
 
 const clean = (value: string | null | undefined, size: number) =>
   (value ?? '').replace(/\s+/g, ' ').trim().slice(0, size);
@@ -24,15 +26,17 @@ export function extractHtml(html: string, url: URL) {
     const title = meta('og:title') || meta('twitter:title') || doc.title;
     const description = meta('og:description') || meta('twitter:description') || meta('description');
     const blocked=/^(?:just a moment|access denied|attention required|security verification|verify you are human|sign in|log in|登录|安全验证|访问受限)/i.test(clean(title,240))||Boolean(doc.querySelector('input[type="password"]')&&clean(doc.body?.textContent,2000).length<500);
+    const structured=blocked?null:structuredArticle(doc,url),semantic=blocked?'':semanticArticle(doc);
     const article = new Readability(doc, { maxElemsToParse: 25_000 }).parse();
-    const fullText=(article?.textContent||'').replace(/\r\n?/g,'\n').split('\n').map(s=>s.replace(/[\t ]+/g,' ').trim()).filter(Boolean).join('\n\n').trim();
+    const chosen=structured&&structured.body.length>(article?.textContent?.length||0)*1.15?structured.body:article?.textContent||semantic;
+    const fullText=(chosen||'').replace(/\r\n?/g,'\n').split('\n').map(s=>s.replace(/[\t ]+/g,' ').trim()).filter(Boolean).join('\n\n').trim();
     const text=Array.from(fullText).slice(0,500000).join('');
     return {
-      title: clean(title || article?.title, 240),
+      title: clean(title || article?.title || structured?.title, 240),
       summary: clean(description || article?.excerpt || text, 420),
       content: text || clean(description, 120_000),
       cover_url: image ? imageUrl(image, url) : null,
-      capture:blocked?'blocked':text.length>=80?'article':'metadata_only',contentTruncated:Array.from(fullText).length>500000,
+      capture:blocked?'blocked':text.length>=80?(chosen===structured?.body?'structured_article':chosen===semantic?'semantic_article':'article'):'metadata_only',contentTruncated:Array.from(fullText).length>500000,
     };
   } finally {
     dom.window.close();
@@ -41,26 +45,7 @@ export function extractHtml(html: string, url: URL) {
 
 async function specialized(url: URL) {
   const platform = identify(url);
-  const github = url.pathname.match(/^\/([\w.-]+)\/([\w.-]+)\/?$/);
-  if (platform === 'github' && github && url.hostname === 'github.com') {
-    const api = new URL(`https://api.github.com/repos/${github[1]}/${github[2]}`);
-    const [repoResponse, readmeResponse] = await Promise.allSettled([
-      readPublic(api, 'application/vnd.github+json'),
-      readPublic(new URL(api.href + '/readme'), 'application/vnd.github+json'),
-    ]);
-    if (repoResponse.status === 'rejected') return null;
-    const repo = JSON.parse(repoResponse.value.text);
-    const readme = readmeResponse.status === 'fulfilled' ? JSON.parse(readmeResponse.value.text) : null;
-    const text = readme?.encoding === 'base64' && typeof readme.content === 'string'
-      ? Buffer.from(readme.content, 'base64').toString('utf8') : '';
-    const combined=[repo.description,repo.language,repo.topics?.join(', '),text].filter(Boolean).join('\n\n');
-    return {
-      title: clean(repo.full_name, 240),
-      summary: clean(repo.description || text, 420),
-      content:Array.from(combined).slice(0,500000).join(''),raw_source:JSON.stringify({repository:repo,readme}),media_type:'application/json',capture_scope:text?'repository':'repository_metadata',source_truncated:Array.from(combined).length>500000,
-      cover_url: null,
-    };
-  }
+  if(platform==='github')return githubSource(url);
   if (platform === 'x' && /\/status\/\d+/.test(url.pathname)) {
     const api = new URL('https://publish.twitter.com/oembed');
     api.search = new URLSearchParams({ url: url.href, omit_script: 'true' }).toString();
@@ -106,6 +91,6 @@ export async function extract(input: URL,validators?:{etag?:string|null;lastModi
     } : null,
     final_url: url.href,
     platform,
-    completeness:extra?extra.capture_scope:['douyin','xiaohongshu'].includes(platform)?'metadata_only':html?.capture||'metadata_only',
+    completeness:extra?extra.capture_scope:platform==='github'?'github_html_partial':platform!=='web'?'metadata_only':html?.capture||'metadata_only',
   };
 }

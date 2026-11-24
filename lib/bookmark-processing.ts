@@ -1,4 +1,5 @@
 import { createHash } from 'node:crypto';
+import {captureIsPartial} from './capture-quality';
 import { extractAsset, AssetError } from './asset-processing';
 import type { database } from './supabase';
 import { canonical, webUrl } from './urls';
@@ -28,7 +29,7 @@ export async function processBookmark(db:Client,id:string,onStage:(stage:string)
   const result=await extract(webUrl(source.original_url));
   if(!result.data)throw new ProcessingError('source_unavailable','链接已保存，但网站未提供可读取正文；可稍后重试或补充笔记',false);
   const key=canonical(webUrl(result.final_url));
-  const {data:updated,error:updateError}=await db.from('bookmarks').update({...result.data,...(source.title_edited_at?{title:source.title}:{}),final_url:result.final_url,platform:result.platform,canonical_url:key,status:'extracted',attributes:{...source.attributes,capture_level:result.completeness}})
+  const {data:updated,error:updateError}=await db.from('bookmarks').update({...result.data,...(source.title_edited_at?{title:source.title}:{}),final_url:result.final_url,platform:result.platform,canonical_url:key,status:'extracted',attributes:{...source.attributes,capture_level:result.completeness,capture_truncated:result.source?.truncated||false}})
    .eq('id',id).eq('user_id',row.user_id).is('deleted_at',null).select('*').single();
   if(updateError)throw new ProcessingError('extract_write','网页已读取，保存内容失败');
   source=updated;
@@ -50,28 +51,32 @@ export async function processBookmark(db:Client,id:string,onStage:(stage:string)
  const {chat,embedding:embeddingKey}=await siteAiConfig();
  if(!source.ai_summary&&!chat)return {waiting:true,reason:'model_unconfigured'};
  if(!source.ai_summary&&chat){
+  const archived=await db.from('bookmark_sources').select('truncated,metadata').eq('bookmark_id',id).eq('source_hash',source.source_hash).maybeSingle();
+  if(archived.error)throw new ProcessingError('source_read','来源采集范围暂不可读');
+  const captureLevel=archived.data?.metadata?.capture_level||source.attributes?.capture_level;
+  const partial=captureIsPartial(captureLevel,archived.data?.truncated||source.attributes?.capture_truncated),scope=partial?'partial':'complete';
   let ai;
   const pieces=chunkContent(source.content,4500,250);
   if(pieces.length>1){
-   const {data:known,error:pieceReadError}=await db.from('bookmark_piece_summaries').select('ordinal,summary,tags,evidence').eq('bookmark_id',id).eq('source_hash',source.source_hash).eq('provider',chat.provider).eq('model',chat.model).eq('prompt_version','piece-v1').order('ordinal');
+   const {data:known,error:pieceReadError}=await db.from('bookmark_piece_summaries').select('ordinal,summary,tags,evidence').eq('bookmark_id',id).eq('source_hash',source.source_hash).eq('provider',chat.provider).eq('model',chat.model).eq('prompt_version','piece-v2').order('ordinal');
    if(pieceReadError)throw new ProcessingError('piece_read','分段整理记录读取失败');
    const done=new Set((known||[]).map(p=>p.ordinal));const missing=pieces.map((text,ordinal)=>({text,ordinal})).filter(p=>!done.has(p.ordinal)).slice(0,3);
    if(missing.length){
     await Promise.all(missing.map(async piece=>{
-     let result;try{result=await understand(source.title+' · 第 '+(piece.ordinal+1)+' 段',piece.text,chat);}catch{throw new ProcessingError('model_unavailable','长文分段整理暂未完成，已保留完成的分段');}
-     const {error}=await db.from('bookmark_piece_summaries').upsert({user_id:row.user_id,bookmark_id:id,source_hash:source.source_hash,ordinal:piece.ordinal,provider:chat.provider,model:chat.model,prompt_version:'piece-v1',...result},{onConflict:'bookmark_id,source_hash,ordinal,provider,model,prompt_version',ignoreDuplicates:true});
+     let result;try{result=await understand(source.title+' · 第 '+(piece.ordinal+1)+' 段',piece.text,chat,4500,scope);}catch{throw new ProcessingError('model_unavailable','长文分段整理暂未完成，已保留完成的分段');}
+     const {error}=await db.from('bookmark_piece_summaries').upsert({user_id:row.user_id,bookmark_id:id,source_hash:source.source_hash,ordinal:piece.ordinal,provider:chat.provider,model:chat.model,prompt_version:'piece-v2',...result},{onConflict:'bookmark_id,source_hash,ordinal,provider,model,prompt_version',ignoreDuplicates:true});
      if(error)throw new ProcessingError('piece_write','分段整理记录保存失败');
     }));
     return {waiting:true,reason:'organize_pending'};
    }
    if(known?.length!==pieces.length)throw new ProcessingError('piece_incomplete','长文分段尚未全部整理');
    const combined=known.map(p=>'第 '+(p.ordinal+1)+' 段：'+p.summary.slice(0,180)).join('\n');
-   try{ai=await understand(source.title,combined,chat,26000);}catch{throw new ProcessingError('model_unavailable','分段已完成，最终汇总暂未完成');}
+   try{ai=await understand(source.title,combined,chat,26000,scope);}catch{throw new ProcessingError('model_unavailable','分段已完成，最终汇总暂未完成');}
    ai.evidence=validEvidence(source.content,known.flatMap(p=>p.evidence||[]));
   }else{
-   try{ai=await understand(source.title,source.content,chat);}catch{throw new ProcessingError('model_unavailable','模型服务未完成整理，请检查模型名称、额度或稍后重试');}
+   try{ai=await understand(source.title,source.content,chat,4500,scope);}catch{throw new ProcessingError('model_unavailable','模型服务未完成整理，请检查模型名称、额度或稍后重试');}
   }
-  const {error:auditError}=await db.from('bookmark_derivations').insert({user_id:row.user_id,bookmark_id:id,source_hash:source.source_hash,provider:chat.provider,model:chat.model,prompt_version:'knowledge-v3',summary:ai.summary,tags:ai.tags,evidence:ai.evidence,coverage:{characters:source.content.length,parts:pieces.length,complete:true}});
+  const {error:auditError}=await db.from('bookmark_derivations').insert({user_id:row.user_id,bookmark_id:id,source_hash:source.source_hash,provider:chat.provider,model:chat.model,prompt_version:'knowledge-v4',summary:ai.summary,tags:ai.tags,evidence:ai.evidence,coverage:{characters:Array.from(source.content).length,parts:pieces.length,complete:!partial,processed_complete:true,scope:'collected_content',capture_level:captureLevel||null}});
   if(auditError)throw new ProcessingError('derivation_write','模型输出存档失败');
   const {data:saved,error:summaryError}=await db.from('bookmarks').update({ai_summary:ai.summary,...(!source.tags_edited_at?{tags:ai.tags}:{})}).eq('id',id).eq('source_hash',source.source_hash).is('ai_summary',null).is('deleted_at',null).select('id').maybeSingle();
   if(summaryError)throw new ProcessingError('summary_write','摘要保存失败');
