@@ -17,7 +17,7 @@ test('display aliases preserve source titles and meaningful hyphens, with no sho
  assert.equal(graph.nodes.find(n=>n.id==='0')?.display_title,'Bencho');
 });
 
-test('actual canvas labels fit mobile edges, avoid one another and keep full-title search and details',()=>{
+test('actual canvas labels fit mobile edges, stay anchored below nodes and keep full-title search and details',()=>{
  for(const width of [320,390,768,1440]){
   const height=700,drawn:{text:string;x:number;y:number;width:number;height:number}[]=[],errors:string[]=[];
   const context:Record<string,any>={font:'12px sans-serif',createRadialGradient:()=>({addColorStop(){}}),createPattern:()=>null};
@@ -41,8 +41,17 @@ test('actual canvas labels fit mobile edges, avoid one another and keep full-tit
    const labels=drawn.filter(d=>d.text.length>1);
    assert.ok(labels.length>0,'titles remain discoverable');
    for(const label of labels){assert.ok(label.width<=204.01);assert.ok(label.x-label.width/2>=11.9);assert.ok(label.x+label.width/2<=width-11.9);assert.ok(!label.text.includes('\ufffd'));}
-   for(let i=0;i<labels.length;i++)for(let j=i+1;j<labels.length;j++){
-    const a=labels[i],b=labels[j];assert.ok(a.x+a.width/2<=b.x-b.width/2||b.x+b.width/2<=a.x-a.width/2||a.y<=b.y-b.height||b.y<=a.y-a.height,'labels must not intersect');
+   const anchors=w.eval('labelHitBoxes.map(box=>({top:box.top,nodeY:screen(box.node).y}))') as {top:number;nodeY:number}[];
+   for(const anchor of anchors)assert(anchor.top>anchor.nodeY,'labels always stay below their node');
+   const sample=()=>w.eval("labelHitBoxes.map(box=>({id:box.node.id,offset:box.top-screen(box.node).y,height:box.bottom-box.top}))") as {id:string;offset:number;height:number}[];
+   // Crowding and hover used to flip labels above nodes or change their wrapping.
+   w.eval("nodes.forEach((n,i)=>{n.x=(i%2)*3;n.y=Math.floor(i/2)*3;});drawGraphLabels(false,null,null)");
+   const initial=sample();assert.equal(initial.length,nodesCount());
+   function nodesCount(){return w.eval('nodes.length');}
+   for(let frame=0;frame<40;frame++){
+    w.eval("nodes.forEach((n,i)=>{n.x+=Math.sin(i+"+frame+")*.5;n.y+=Math.cos(i+"+frame+")*.5;});drawGraphLabels("+(frame%2===0)+",byId.get('0'),null)");
+    const current=sample();assert.equal(current.length,initial.length,'neighbor motion never hides a title');
+    for(const anchor of current){const previous=initial.find(x=>x.id===anchor.id)!;assert(Math.abs(anchor.offset-previous.offset)<1e-8);assert.equal(anchor.height,previous.height,'hover must not rewrap the title');}
    }
    drawn.length=0;w.eval("hover=byId.get('0');frame(performance.now())");assert.ok(drawn.some(d=>d.text==='Bencho'),'focused title has priority');
    w.eval("query='micro-interactions';updateCount()");assert.equal(w.document.querySelector('#count')!.textContent,'1 个节点','search still sees removed tagline');
