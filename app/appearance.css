@@ -182,3 +182,13 @@ html[data-theme=light] {
 .workspace-composer .capture-field { backdrop-filter:blur(8px); }
 html[data-theme=dark] .workspace-composer .capture-field:focus-within { border-color:#f9c84666; }
 html[data-theme=dark] .account-panel::backdrop { background:#00000066; }
+
+@font-face {
+ font-family:'Cheese Sans';src:url('/fonts/geist-latin.woff2') format('woff2');
+ font-weight:100 900;font-style:normal;font-display:swap;
+}
+body,button,input,select,textarea {
+ font-family:'Cheese Sans',-apple-system,BlinkMacSystemFont,'PingFang SC','Microsoft YaHei','Noto Sans CJK SC',sans-serif;
+ font-synthesis:none;
+}
+.workspace-composer .capture-field input { font-weight:400;letter-spacing:0; }
