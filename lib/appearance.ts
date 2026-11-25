@@ -1,7 +1,7 @@
 export type Appearance = 'light' | 'dark';
 
 export const appearanceKey = 'cheesecool.appearance.v1';
-export const appearanceColors = { light: '#ffffff', dark: '#0a0a0a' } as const;
+export const appearanceColors = { light: '#f7f8fb', dark: '#111116' } as const;
 
 // In the initial HTML so a returning visitor sees their canvas colour on first paint.
 export const appearanceBootstrap = `(() => {

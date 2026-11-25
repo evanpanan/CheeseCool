@@ -166,29 +166,19 @@ html[data-theme=light] {
  --chrome-shadow:0 2px 4px #25294303,0 10px 30px #25294306;
 }
 
-/* Quiet neutral surfaces: structure and contrast, with glow reserved for the graph focus. */
+/* Neutral luminous surfaces shared with the knowledge canvas. */
 html[data-theme=dark] {
- --paper:#0a0a0a; --ink:#f5f5f5; --subtle:#a1a1aa; --line:#29292d;
- --surface:#141414; --muted-surface:#202022;
- --chrome:#151515f2; --chrome-line:#ffffff1a;
- --chrome-shadow:0 2px 8px #00000014;
+ --paper:#111116; --ink:#edf0f7; --subtle:#adb3c2; --line:#30323e;
+ --surface:#1b1c24; --muted-surface:#242630;
+ --chrome:#1c1d25e6; --chrome-line:#ffffff1c;
+ --chrome-shadow:0 1px 0 #ffffff08 inset,0 12px 36px #00000022;
 }
 html[data-theme=light] {
- --paper:#ffffff; --ink:#171717; --subtle:#6b6b73; --line:#e7e7e7;
- --surface:#fff; --muted-surface:#f5f5f5;
- --chrome:#fffffff2; --chrome-line:#e7e7e7;
- --chrome-shadow:0 2px 8px #00000006;
+ --paper:#f7f8fb; --ink:#303440; --subtle:#717887; --line:#e1e5ee;
+ --surface:#fff; --muted-surface:#f0f2f7;
+ --chrome:#ffffffe6; --chrome-line:#dce1eb;
+ --chrome-shadow:0 1px 0 #fff inset,0 8px 32px #313b560a;
 }
-.workspace-composer .capture-field { backdrop-filter:blur(8px); }
+.workspace-composer .capture-field { backdrop-filter:blur(20px) saturate(120%); }
 html[data-theme=dark] .workspace-composer .capture-field:focus-within { border-color:#f9c84666; }
-html[data-theme=dark] .account-panel::backdrop { background:#00000066; }
-
-@font-face {
- font-family:'Cheese Sans';src:url('/fonts/geist-latin.woff2') format('woff2');
- font-weight:100 900;font-style:normal;font-display:swap;
-}
-body,button,input,select,textarea {
- font-family:'Cheese Sans',-apple-system,BlinkMacSystemFont,'PingFang SC','Microsoft YaHei','Noto Sans CJK SC',sans-serif;
- font-synthesis:none;
-}
-.workspace-composer .capture-field input { font-weight:400;letter-spacing:0; }
+html[data-theme=dark] .account-panel::backdrop { background:#08090e66; }
