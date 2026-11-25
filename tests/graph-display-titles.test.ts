@@ -19,9 +19,11 @@ test('display aliases preserve source titles and meaningful hyphens, with no sho
 
 test('actual canvas labels fit mobile edges, stay anchored below nodes and keep full-title search and details',()=>{
  for(const width of [320,390,768,1440]){
+  const stroked:string[]=[];
   const height=700,drawn:{text:string;x:number;y:number;width:number;height:number}[]=[],errors:string[]=[];
   const context:Record<string,any>={font:'12px sans-serif',createRadialGradient:()=>({addColorStop(){}}),createPattern:()=>null};
   const measure=(text:string)=>Array.from(text).reduce((n,ch)=>n+(/[^\x00-\xff]/u.test(ch)?1:.58),0)*(parseFloat(context.font.match(/([\d.]+)px/)?.[1]||'12'));
+  context.strokeText=(text:string)=>stroked.push(text);
   context.measureText=(text:string)=>({width:measure(text)});context.fillText=(text:string,x:number,y:number)=>drawn.push({text,x,y,width:measure(text),height:parseFloat(context.font.match(/([\d.]+)px/)?.[1]||'12')});
   const ctx=new Proxy(context,{get:(object,key)=>key in object?object[key as string]:()=>{}});
   const graph=buildNetwork(titles.map((title,i)=>({id:String(i),title,original_url:'https://example.org/'+i,final_url:null,platform:'web',summary:'Original abstract',ai_summary:null,tags:['设计'],status:'indexed'})),[]);
@@ -40,6 +42,7 @@ test('actual canvas labels fit mobile edges, stay anchored below nodes and keep 
    w.eval('frame(performance.now())');
    const labels=drawn.filter(d=>d.text.length>1);
    assert.ok(labels.length>0,'titles remain discoverable');
+   assert.deepEqual(stroked,[],'reference typography uses clean fill text without a heavy outline');
    for(const label of labels){assert.ok(label.width<=204.01);assert.ok(label.x-label.width/2>=11.9);assert.ok(label.x+label.width/2<=width-11.9);assert.ok(!label.text.includes('\ufffd'));}
    const anchors=w.eval('labelHitBoxes.map(box=>({top:box.top,nodeY:screen(box.node).y}))') as {top:number;nodeY:number}[];
    for(const anchor of anchors)assert(anchor.top>anchor.nodeY,'labels always stay below their node');
