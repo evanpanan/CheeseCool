@@ -165,3 +165,20 @@ html[data-theme=light] {
  --chrome:#fffffffa; --chrome-line:#e5e5eb;
  --chrome-shadow:0 2px 4px #25294303,0 10px 30px #25294306;
 }
+
+/* Neutral luminous surfaces shared with the knowledge canvas. */
+html[data-theme=dark] {
+ --paper:#111116; --ink:#edf0f7; --subtle:#adb3c2; --line:#30323e;
+ --surface:#1b1c24; --muted-surface:#242630;
+ --chrome:#1c1d25e6; --chrome-line:#ffffff1c;
+ --chrome-shadow:0 1px 0 #ffffff08 inset,0 12px 36px #00000022;
+}
+html[data-theme=light] {
+ --paper:#f7f8fb; --ink:#303440; --subtle:#717887; --line:#e1e5ee;
+ --surface:#fff; --muted-surface:#f0f2f7;
+ --chrome:#ffffffe6; --chrome-line:#dce1eb;
+ --chrome-shadow:0 1px 0 #fff inset,0 8px 32px #313b560a;
+}
+.workspace-composer .capture-field { backdrop-filter:blur(20px) saturate(120%); }
+html[data-theme=dark] .workspace-composer .capture-field:focus-within { border-color:#f9c84666; }
+html[data-theme=dark] .account-panel::backdrop { background:#08090e66; }
