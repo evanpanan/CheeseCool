@@ -8,7 +8,6 @@ type Props = {
   graph: ReturnType<typeof buildNetwork>;
   night: boolean;
   query: string;
-  paused: boolean;
   selected: string;
   saved: { id: string; event: number } | null;
   onSelect: (id: string) => void;
@@ -47,9 +46,10 @@ export function OrbitCanvas(props: Props) {
       frame.current?.contentWindow?.postMessage({type:'cheesecool:graph',graph:value.graph},'*');
       sentGraph.current=value.graph;
     }
+    // Input focus never pauses the orbit; motion belongs to the canvas controls.
     frame.current?.contentWindow?.postMessage({
       type: 'cheesecool:state', mode: window.document.documentElement.dataset.theme === 'dark' ? 'dark' : 'light',
-      query: value.query, paused: value.paused, focus: value.selected,
+      query: value.query, focus: value.selected,
       saved: value.saved && `${value.saved.id}:${value.saved.event}` !== locatedSave.current ? value.saved : null,
     }, '*');
     frame.current?.contentWindow?.postMessage({type:'cheesecool:icons',icons:icons.current},'*');
@@ -146,7 +146,7 @@ export function OrbitCanvas(props: Props) {
     return()=>{alive=false;};
   },[props.graph]);
 
-  useEffect(synchronize, [props.graph, props.night, props.query, props.paused, props.selected, props.saved]);
+  useEffect(synchronize, [props.graph, props.night, props.query, props.selected, props.saved]);
   return <><iframe key={revision} ref={frame} title="芝士库" className="orbit-library-frame"
     style={{ visibility: recovery!=='failed'&&paintedDocument === document ? 'visible' : 'hidden' }}
     sandbox="allow-scripts allow-popups allow-popups-to-escape-sandbox" srcDoc={document} onLoad={synchronize}/>

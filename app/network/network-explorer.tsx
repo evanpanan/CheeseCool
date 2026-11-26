@@ -46,7 +46,7 @@ export function NetworkExplorer({ bookmarks, edges }: {
   }
 
   return <section className="reference-library-page" aria-label="芝士库">
-    <OrbitCanvas graph={graph} night={night} query={search?.query ?? ''} paused={composing}
+    <OrbitCanvas graph={graph} night={night} query={search?.query ?? ''}
       selected={selected} saved={savedBookmark} onSelect={id => { if (!id || graph.nodes.some(node => node.id === id)) setSelected(id); }}/>
   </section>;
 }

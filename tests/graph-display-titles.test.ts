@@ -112,8 +112,14 @@ test('theme changes paint synchronously even with RAF suspended and retain the c
    win.dispatchEvent(new win.MessageEvent('message',{source:win as unknown as Window,data:{type:'cheesecool:state',mode,paused:true,query:'',focus:'',saved:null}}));
    assert.equal(win.document.documentElement.dataset.theme,mode);assert(backgrounds>before,'background repaints without waiting for RAF');assert(arcs>oldArcs,'nodes repaint in the same task');assert.equal(win.eval('[scale,ox,oy].join()'),camera);
   }
-  win.dispatchEvent(new win.MessageEvent('message',{source:win as unknown as Window,data:{type:'cheesecool:state',mode:'light',paused:false,query:'',focus:'',saved:{id:'saved',event:1}}}));
+  win.dispatchEvent(new win.MessageEvent('message',{source:win as unknown as Window,data:{type:'cheesecool:state',mode:'light',query:'',focus:'',saved:{id:'saved',event:1}}}));
   assert.equal(win.eval('selected'),null);assert.equal(win.document.querySelector('#panel')!.hasAttribute('hidden'),true);assert.equal(win.eval("arrivalProgress('saved',180,620)"),0);
+  assert.equal(win.eval('paused'),false,'saving must run the orbit without a composer pause flag');
+  assert.equal(win.eval('saveBurst.id'),'saved','title and edge arrival animation must start');
+  const positionBefore=win.eval("[byId.get('saved').x,byId.get('saved').y].join()");
+  assert.equal(win.eval('Boolean(cameraTween)'),true,'saving still locates the node');
+  win.eval('cameraTween=null;last=performance.now()-40;safePaint(performance.now())');
+  assert.notEqual(win.eval("[byId.get('saved').x,byId.get('saved').y].join()"),positionBefore,'nodes keep moving while the arrival sequence plays');
   win.eval('cameraTween=null');const originalTarget=win.eval("[byId.get('saved').tx,byId.get('saved').ty].join()");
   const updated=buildNetwork([{id:'saved',title:'Saved knowledge',original_url:'https://example.org/saved',final_url:null,platform:'web',summary:'Saved source',ai_summary:null,tags:['设计'],status:'indexed'},{id:'related',title:'Related knowledge',original_url:'https://example.org/related',final_url:null,platform:'web',summary:'Related source',ai_summary:null,tags:['设计'],status:'indexed'}],[]);
   const sendGraph=()=>win.dispatchEvent(new win.MessageEvent('message',{source:win as unknown as Window,data:{type:'cheesecool:graph',graph:updated}}));sendGraph();
@@ -121,6 +127,11 @@ test('theme changes paint synchronously even with RAF suspended and retain the c
   assert.equal(win.eval('[scale,ox,oy].join()'),camera);assert.equal(win.eval("[byId.get('saved').tx,byId.get('saved').ty].join()"),originalTarget);
   const started=win.eval("[...edgeBirths.values()][0].started");sendGraph();assert.equal(win.eval("[...edgeBirths.values()][0].started"),started,'unchanged refresh must not restart growth');
   assert.equal(win.eval('nodes.length'),2);
+  (win.document.querySelector('#motion') as HTMLButtonElement).click();
+  win.dispatchEvent(new win.MessageEvent('message',{source:win as unknown as Window,data:{type:'cheesecool:state',mode:'light',query:'',focus:'',saved:{id:'saved',event:2}}}));
+  assert.equal(win.eval('paused'),true,'an explicit motion-control pause remains respected');
+  (win.document.querySelector('#motion') as HTMLButtonElement).click();
+  assert.equal(win.eval('paused'),false);
   assert.deepEqual(errors,[]);
  }finally{dom.window.close();}
 });
