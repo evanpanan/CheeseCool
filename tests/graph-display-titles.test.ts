@@ -144,3 +144,31 @@ test('a temporarily zero-size or interrupted canvas recovers without losing know
   win.dispatchEvent(new win.MessageEvent('message',{source:win as unknown as Window,data:{type:'cheesecool:render-check'}}));assert(messages.some(m=>m.type==='cheesecool:render-health'&&m.ok));assert.equal(win.eval('nodes.length'),1);assert.deepEqual(errors,[]);
  }finally{dom.window.close();}
 });
+
+test('compact view disclosure preserves zoom and motion controls with outside and keyboard dismissal',()=>{
+ for(const width of [320,1440]){
+  const errors:string[]=[];
+  const context=new Proxy({createRadialGradient:()=>({addColorStop(){}}),measureText:()=>({width:30})},{get:(value,key)=>key in value?value[key as keyof typeof value]:()=>{}});
+  const graph=buildNetwork([{id:'saved',title:'Saved knowledge',original_url:'https://example.org/saved',final_url:null,platform:'web',summary:'Saved source',ai_summary:null,tags:['设计'],status:'indexed'}],[]);
+  const vc=new VirtualConsole();vc.on('jsdomError',e=>{if(!('type' in e)||e.type!=='css-parsing')errors.push(e.message);});
+  const dom=new JSDOM(orbitDocument.replace('__PAYLOAD__','window.__cheesecool='+JSON.stringify(graph)+';'),{runScripts:'dangerously',pretendToBeVisual:true,virtualConsole:vc,beforeParse(win){
+   win.matchMedia=()=>({matches:false}) as MediaQueryList;win.requestAnimationFrame=()=>0;win.cancelAnimationFrame=()=>{};
+   win.HTMLCanvasElement.prototype.getContext=(()=>context) as any;
+   Object.defineProperty(win.HTMLCanvasElement.prototype,'clientWidth',{get:()=>width});Object.defineProperty(win.HTMLCanvasElement.prototype,'clientHeight',{get:()=>780});
+  }});
+  try{
+   const w=dom.window,toggle=w.document.querySelector<HTMLButtonElement>('#view-toggle')!,actions=w.document.querySelector<HTMLElement>('#view-actions')!;
+   const button=(id:string)=>w.document.getElementById(id) as HTMLButtonElement;
+   assert(actions.hidden);assert.equal(toggle.getAttribute('aria-expanded'),'false');assert.equal(w.getComputedStyle(toggle).width,'44px');assert.equal(w.getComputedStyle(actions).display,'none');
+   toggle.click();assert(!actions.hidden);assert.equal(toggle.getAttribute('aria-expanded'),'true');assert.equal(w.getComputedStyle(actions).display,'grid');
+   const oldScale=Number(w.eval('scale'));button('plus').click();assert(Number(w.eval('scale'))>oldScale);button('minus').click();assert(Math.abs(Number(w.eval('scale'))-oldScale)<1e-8);assert(!actions.hidden);
+   const wasPaused=w.eval('paused');button('motion').click();assert.notEqual(w.eval('paused'),wasPaused);assert(!actions.hidden);
+   w.document.body.dispatchEvent(new w.Event('pointerdown',{bubbles:true}));assert(actions.hidden);
+   toggle.click();button('motion').focus();w.document.dispatchEvent(new w.KeyboardEvent('keydown',{key:'Escape',bubbles:true}));assert(actions.hidden);assert.equal(w.document.activeElement,toggle);
+   toggle.click();button('reset').click();assert(actions.hidden);assert.equal(w.document.activeElement,toggle);
+   toggle.click();button('wander').click();assert(actions.hidden);assert(w.eval('tour')!==null);w.eval('stopTour()');
+   toggle.click();w.eval("show(byId.get('saved'))");assert(actions.hidden,'opening details must not leave a stale menu open');
+   assert.deepEqual(errors,[]);
+  }finally{dom.window.close();}
+ }
+});
