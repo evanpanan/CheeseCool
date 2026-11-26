@@ -34,6 +34,7 @@ export function WorkspaceInput({ onResult }: { onResult: (result: WorkspaceResul
   const [hovered, setHovered] = useState(false);
   const [showResult, setShowResult] = useState(false);
   const [feedbackLeaving, setFeedbackLeaving] = useState(false);
+  const [elapsed, setElapsed] = useState(0);
   const [state, action, pending] = useActionState(submitWithFeedback, {});
   const intent = workspaceIntent(value).kind;
   const error = showResult && !pending ? state.error : undefined;
@@ -54,6 +55,14 @@ export function WorkspaceInput({ onResult }: { onResult: (result: WorkspaceResul
       window.removeEventListener('cheesecool:workspace-outside',collapse);
     };
   },[]);
+
+  useEffect(() => {
+    if (!pending) return;
+    const started = performance.now();
+    setElapsed(0);
+    const timer = window.setInterval(() => setElapsed((performance.now() - started) / 1000), 500);
+    return () => window.clearInterval(timer);
+  }, [pending]);
 
   useEffect(() => {
     inFlight.current = false;
@@ -109,8 +118,8 @@ export function WorkspaceInput({ onResult }: { onResult: (result: WorkspaceResul
   const saved = showResult && !pending && state.kind === 'save' && state.ok;
   const found = showResult && !pending && state.kind === 'search' && state.ok;
   const matches=state.bookmarks?.length ?? 0;
-  const message = pending ? (workspaceIntent(submitted.current).kind === 'save' ? '正在收藏…' : '正在寻找相关芝士…')
-    : error || (saved ? (state.duplicate ? '已在芝士库，已为你定位' : '已收藏，看看亮起的芝士') : found ? (matches ? `${state.searchMode==='semantic'?'语义匹配':'找到'} ${matches} 条相关芝士` : '暂未找到相关芝士，试试其他关键词') : '');
+  const message = pending ? (workspaceIntent(submitted.current).kind === 'save' ? '正在保存链接' : '正在寻找相关芝士')
+    : error || (saved ? (state.duplicate ? '已在芝士库，已为你定位' : '已收藏，内容将在后台解析') : found ? (matches ? `${state.searchMode==='semantic'?'语义匹配':'找到'} ${matches} 条相关芝士` : '暂未找到相关芝士，试试其他关键词') : '');
   const feedbackState = pending ? 'pending' : error ? 'error' : saved ? 'saved' : found ? 'matched' : 'idle';
 
   return <form ref={form} className="capture-form unified-input" data-state={feedbackState}
@@ -154,7 +163,11 @@ export function WorkspaceInput({ onResult }: { onResult: (result: WorkspaceResul
       </button>
     </div>
     <div className="capture-feedback" data-visible={Boolean(message)} data-leaving={feedbackLeaving}>
-      <span id="capture-feedback" role="status" className={message?'capture-status':undefined}>{message && <AiSignal size={18} state={pending?'thinking':error?'error':saved?'done':'connected'}/>}<span>{message}</span></span>
+      <span className={message ? 'capture-status' : undefined} data-phase={feedbackState}>
+        {message && <AiSignal size={18} state={pending ? 'thinking' : error ? 'error' : saved ? 'done' : 'connected'}/>}
+        <span id="capture-feedback" role="status" key={feedbackState}>{message}</span>
+        {pending && <span className="capture-elapsed" aria-hidden="true">{elapsed.toFixed(1)}s</span>}
+      </span>
     </div>
   </form>;
 }

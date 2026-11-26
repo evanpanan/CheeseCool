@@ -49,3 +49,12 @@ html[data-theme] .workspace-composer .capture-feedback{background:transparent;pa
 .generative-text[data-phase=type] .auth-caret{animation:none;box-shadow:0 0 8px #f9c84655}
 @keyframes auth-caret-blink{0%,45%{opacity:1}46%,100%{opacity:.2}}
 @media(prefers-reduced-motion:reduce){.generative-text{transition:none}.auth-caret{animation:none;opacity:.65}}
+
+/* A small activity capsule follows the real save/search lifecycle. */
+.capture-feedback .capture-status{border-radius:999px;padding:8px 13px 8px 10px;min-height:35px;backdrop-filter:blur(18px);gap:8px}
+.capture-status[data-phase=pending]{border-color:color-mix(in srgb,var(--accent-ink) 24%,var(--chrome-line))}
+.capture-status[data-phase=saved]{border-color:color-mix(in srgb,#438365 25%,var(--chrome-line))}
+.capture-status .capture-elapsed{border-left:1px solid var(--chrome-line);padding-left:9px;color:var(--subtle);font-size:10px;font-variant-numeric:tabular-nums;min-width:34px;animation:none!important}
+.capture-status [role=status]{animation:activity-copy-in .24s ease-out both}
+@keyframes activity-copy-in{from{opacity:0;transform:translateY(3px)}to{opacity:1;transform:translateY(0)}}
+@media(prefers-reduced-motion:reduce){.capture-status [role=status]{animation:none}}
