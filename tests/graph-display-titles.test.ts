@@ -218,3 +218,25 @@ test('topic constellation previews are reversible and never change the selected 
   assert.deepEqual(errors,[]);
  }finally{dom.window.close();}
 });
+
+test('site logos paint on ordinary nodes while paused and failed images retain the cheese fallback',()=>{
+ const images:any[]=[],draws:any[]=[];
+ class IconImage{src='';complete=false;naturalWidth=0;onload:(()=>void)|null=null;constructor(){images.push(this);}}
+ const context=new Proxy({createRadialGradient:()=>({addColorStop(){}}),measureText:()=>({width:30}),drawImage:(value:unknown)=>draws.push(value)},{get:(value,key)=>key in value?value[key as keyof typeof value]:()=>{}});
+ const graph=buildNetwork([0,1].map(i=>({id:'logo'+i,title:'Source '+i,original_url:'https://example.org/'+i,final_url:null,platform:'web' as const,summary:'Source',ai_summary:null,tags:['设计'],status:'indexed'})),[]);
+ const dom=new JSDOM(orbitDocument.replace('__PAYLOAD__','window.__cheesecool='+JSON.stringify(graph)+';'),{runScripts:'dangerously',pretendToBeVisual:true,beforeParse(win){
+  win.Image=IconImage as any;win.matchMedia=()=>({matches:false}) as MediaQueryList;win.requestAnimationFrame=()=>0;win.cancelAnimationFrame=()=>{};
+  win.HTMLCanvasElement.prototype.getContext=(()=>context) as any;
+  Object.defineProperty(win.HTMLCanvasElement.prototype,'clientWidth',{get:()=>1440});Object.defineProperty(win.HTMLCanvasElement.prototype,'clientHeight',{get:()=>900});
+ }});
+ try{
+  const w=dom.window;w.eval('paused=true;scale=1');
+  const fallback=images[0];fallback.complete=true;fallback.naturalWidth=96;fallback.onload();
+  const ordinary=String(w.eval('nodes.find(n=>!n.hub).id'));
+  const send=(url:string)=>w.dispatchEvent(new w.MessageEvent('message',{source:w as unknown as Window,data:{type:'cheesecool:icons',icons:{[ordinary]:url}}}));
+  send('data:image/png;base64,aGVsbG8=');const logo=images.at(-1);draws.length=0;logo.complete=true;logo.naturalWidth=64;logo.onload();
+  assert(draws.includes(logo),'image arrival repaints a paused canvas, including ordinary nodes');assert(draws.includes(fallback),'nodes without logos retain the branded fallback');
+  draws.length=0;logo.naturalWidth=0;w.eval('safePaint(performance.now())');assert(!draws.includes(logo));assert(draws.includes(fallback),'broken images never replace the cheese with a blank node');
+  const count=images.length;send('https://untrusted.invalid/icon.png');assert.equal(images.length,count,'iframe accepts only validated raster data');
+ }finally{dom.window.close();}
+});

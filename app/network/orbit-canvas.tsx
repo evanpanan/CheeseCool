@@ -19,6 +19,7 @@ export function OrbitCanvas(props: Props) {
   const latest = useRef(props);
   const locatedSave = useRef('');
   const icons = useRef<Record<string,string>>({});
+  const siteIconRequests=useRef(new Map<string,Promise<string|null>>());
   latest.current = props;
   // Keep one iframe alive while metadata and inferred links arrive.
   const [document] = useState(() => orbitDocument.replace('__PAYLOAD__',
@@ -110,22 +111,40 @@ export function OrbitCanvas(props: Props) {
   }, []);
 
   useEffect(()=>{
-    const controller=new AbortController();let alive=true;
-    const node=props.graph.nodes.find(n=>n.id===props.selected);
-    if(!node||icons.current[node.id]||(node.record_type&&node.record_type!=='web'))return;
-    async function loadDetailIcon(){
+    let alive=true;
+    const sites=new Map<string,string[]>();
+    for(const node of props.graph.nodes){
+      if(node.record_type&&node.record_type!=='web')continue;
       try{
-        const response=await fetch('/api/site-icon?id='+encodeURIComponent(node!.id),{signal:controller.signal});
-        if(!response.ok||response.status===204||response.headers.get('content-type')!=='image/png')return;
-        const blob=await response.blob();if(blob.size>65536)return;
-        const value=await new Promise<string>((resolve,reject)=>{const reader=new FileReader();reader.onload=()=>resolve(String(reader.result));reader.onerror=()=>reject(new Error('icon'));reader.readAsDataURL(blob);});
-        if(!alive)return;icons.current[node!.id]=value;
-        frame.current?.contentWindow?.postMessage({type:'cheesecool:icons',icons:{[node!.id]:value}},'*');
-      }catch{/* source identity is optional; the constellation never waits for a favicon */}
+        const url=new URL(node.final_url||node.original_url);
+        if(!['https:','http:'].includes(url.protocol))continue;
+        const ids=sites.get(url.origin)||[];ids.push(node.id);sites.set(url.origin,ids);
+      }catch{/* non-web records keep the CheeseCool mark */}
     }
-    void loadDetailIcon();
-    return()=>{alive=false;controller.abort();};
-  },[props.graph,props.selected]);
+    const queue=[...sites];let cursor=0;
+    async function loadIcon(id:string){
+      try{
+        const response=await fetch('/api/site-icon?id='+encodeURIComponent(id),{signal:AbortSignal.timeout(20000)});
+        if(!response.ok||response.status===204||response.headers.get('content-type')!=='image/png')return null;
+        const blob=await response.blob();if(blob.size>65536)return null;
+        return await new Promise<string>((resolve,reject)=>{const reader=new FileReader();reader.onload=()=>resolve(String(reader.result));reader.onerror=()=>reject(new Error('icon'));reader.readAsDataURL(blob);});
+      }catch{return null;}
+    }
+    async function worker(){
+      while(alive&&cursor<queue.length){
+        const [origin,ids]=queue[cursor++];
+        let pending=siteIconRequests.current.get(origin);
+        if(!pending){pending=loadIcon(ids[0]);siteIconRequests.current.set(origin,pending);}
+        const value=await pending;if(!alive)return;if(!value)continue;
+        const updates:Record<string,string>={};
+        for(const id of ids){icons.current[id]=value;updates[id]=value;}
+        frame.current?.contentWindow?.postMessage({type:'cheesecool:icons',icons:updates},'*');
+      }
+    }
+    // Source identity never blocks the canvas, and repeated domains share a request.
+    for(let i=0;i<Math.min(4,queue.length);i++)void worker();
+    return()=>{alive=false;};
+  },[props.graph]);
 
   useEffect(synchronize, [props.graph, props.night, props.query, props.paused, props.selected, props.saved]);
   return <><iframe key={revision} ref={frame} title="芝士库" className="orbit-library-frame"
