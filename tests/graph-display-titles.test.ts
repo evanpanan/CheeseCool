@@ -237,6 +237,12 @@ test('site logos paint on ordinary nodes while paused and failed images retain t
   send('data:image/png;base64,aGVsbG8=');const logo=images.at(-1);draws.length=0;logo.complete=true;logo.naturalWidth=64;logo.onload();
   assert(draws.includes(logo),'image arrival repaints a paused canvas, including ordinary nodes');assert(draws.includes(fallback),'nodes without logos retain the branded fallback');
   draws.length=0;logo.naturalWidth=0;w.eval('safePaint(performance.now())');assert(!draws.includes(logo));assert(draws.includes(fallback),'broken images never replace the cheese with a blank node');
+  const ink=[90,120,160];
+  for(const [background,foreground] of [[255,0],[32,255]]){
+   const pixels=Array.from({length:9},(_,i)=>i===4?[foreground,foreground,foreground,255]:[background,background,background,255]).flat();
+   const result=JSON.parse(String(w.eval('JSON.stringify(Array.from(harmonizeLogoPixels(new Uint8ClampedArray('+JSON.stringify(pixels)+'),3,3,'+JSON.stringify(ink)+')))')));
+   assert.equal(result[3],0,'removes generated light and dark matte backgrounds');assert.equal(result[19],255,'retains the contrasting source silhouette');assert.deepEqual(result.slice(16,19),ink);
+  }
   const count=images.length;send('https://untrusted.invalid/icon.png');assert.equal(images.length,count,'iframe accepts only validated raster data');
  }finally{dom.window.close();}
 });
