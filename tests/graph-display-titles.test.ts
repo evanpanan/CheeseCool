@@ -230,13 +230,21 @@ test('site logos paint on ordinary nodes while paused and failed images retain t
   Object.defineProperty(win.HTMLCanvasElement.prototype,'clientWidth',{get:()=>1440});Object.defineProperty(win.HTMLCanvasElement.prototype,'clientHeight',{get:()=>900});
  }});
  try{
-  const w=dom.window;w.eval('paused=true;scale=1');
+  const w=dom.window;w.eval('paused=true;scale=2');
   const fallback=images[0];fallback.complete=true;fallback.naturalWidth=96;fallback.onload();
   const ordinary=String(w.eval('nodes.find(n=>!n.hub).id'));
   const send=(url:string)=>w.dispatchEvent(new w.MessageEvent('message',{source:w as unknown as Window,data:{type:'cheesecool:icons',icons:{[ordinary]:url}}}));
   send('data:image/png;base64,aGVsbG8=');const logo=images.at(-1);draws.length=0;logo.complete=true;logo.naturalWidth=64;logo.onload();
   assert(draws.includes(logo),'image arrival repaints a paused canvas, including ordinary nodes');assert(draws.includes(fallback),'nodes without logos retain the branded fallback');
   draws.length=0;logo.naturalWidth=0;w.eval('safePaint(performance.now())');assert(!draws.includes(logo));assert(draws.includes(fallback),'broken images never replace the cheese with a blank node');
+  for(const item of graph.nodes){
+   const hub=graph.groups[item.groupIndex].nodes[0].id===item.id;
+   const degree=graph.links.filter(link=>link.source_id===item.id||link.target_id===item.id).length;
+   assert.equal(w.eval('byId.get('+JSON.stringify(item.id)+').r'),hub?23:4+degree*1.6,'uses the reference visual radius rather than the backend layout radius');
+  }
+  const radii=String(w.eval('JSON.stringify(nodes.map(n=>n.r))'));
+  w.dispatchEvent(new w.MessageEvent('message',{source:w as unknown as Window,data:{type:'cheesecool:state',mode:'light',paused:true,query:'',focus:'',saved:null}}));
+  assert.equal(String(w.eval('JSON.stringify(nodes.map(n=>n.r))')),radii,'light and dark keep identical node sizes');
   const ink=[90,120,160];
   for(const [background,foreground] of [[255,0],[32,255]]){
    const pixels=Array.from({length:9},(_,i)=>i===4?[foreground,foreground,foreground,255]:[background,background,background,255]).flat();
