@@ -168,6 +168,16 @@ test('compact view disclosure preserves zoom and motion controls with outside an
    toggle.click();button('reset').click();assert(actions.hidden);assert.equal(w.document.activeElement,toggle);
    toggle.click();button('wander').click();assert(actions.hidden);assert(w.eval('tour')!==null);w.eval('stopTour()');
    toggle.click();w.eval("show(byId.get('saved'))");assert(actions.hidden,'opening details must not leave a stale menu open');
+   const baseline=JSON.parse(String(w.eval('JSON.stringify(nodes.map(n=>[n.id,n.tx,n.ty]))')));
+   w.eval('nodes.forEach(n=>{n.x=n.tx+=500;n.y=n.ty-=300});ox=900;oy=-600;scale=2;manualCamera=true');
+   toggle.click();button('restore-layout').click();assert(actions.hidden);assert.equal(w.document.activeElement,toggle);
+   assert.deepEqual(JSON.parse(String(w.eval('JSON.stringify(nodes.map(n=>[n.id,n.tx,n.ty]))'))),baseline,'restores node anchors, not just the viewport');
+   assert.equal(w.eval('paused'),!wasPaused,'preserves the motion setting');assert.equal(w.eval('selected'),null);assert.equal(w.eval('tour'),null);assert(w.eval('cameraTween!==null'),'recenters the restored layout');
+   const updated=JSON.parse(JSON.stringify(graph));updated.nodes[0].orbitX=123;updated.nodes[0].orbitY=-87;
+   w.dispatchEvent(new w.MessageEvent('message',{source:w as unknown as Window,data:{type:'cheesecool:graph',graph:updated}}));
+   w.eval('nodes[0].tx=999;nodes[0].ty=999');toggle.click();button('restore-layout').click();
+   assert.deepEqual(JSON.parse(String(w.eval('JSON.stringify([nodes[0].tx,nodes[0].ty])'))),[123,-87],'uses the latest source layout after graph updates');
+
    assert.deepEqual(errors,[]);
   }finally{dom.window.close();}
  }
