@@ -172,3 +172,30 @@ test('compact view disclosure preserves zoom and motion controls with outside an
   }finally{dom.window.close();}
  }
 });
+
+test('topic constellation previews are reversible and never change the selected topic or camera',()=>{
+ const errors:string[]=[];
+ const context=new Proxy({createRadialGradient:()=>({addColorStop(){}}),measureText:()=>({width:30})},{get:(value,key)=>key in value?value[key as keyof typeof value]:()=>{}});
+ const graph=buildNetwork(['设计','设计','知识','知识'].map((tag,i)=>({id:'n'+i,title:'材料 '+i,original_url:'https://example.org/'+i,final_url:null,platform:'web' as const,summary:'原文',ai_summary:null,tags:[tag],status:'indexed'})),[]);
+ const vc=new VirtualConsole();vc.on('jsdomError',e=>{if(!('type' in e)||e.type!=='css-parsing')errors.push(e.message);});
+ const dom=new JSDOM(orbitDocument.replace('__PAYLOAD__','window.__cheesecool='+JSON.stringify(graph)+';'),{runScripts:'dangerously',pretendToBeVisual:true,virtualConsole:vc,beforeParse(win){
+  win.matchMedia=()=>({matches:false}) as MediaQueryList;win.requestAnimationFrame=()=>0;win.cancelAnimationFrame=()=>{};
+  win.HTMLCanvasElement.prototype.getContext=(()=>context) as any;
+  Object.defineProperty(win.HTMLCanvasElement.prototype,'clientWidth',{get:()=>1440});Object.defineProperty(win.HTMLCanvasElement.prototype,'clientHeight',{get:()=>900});
+ }});
+ try{
+  const w=dom.window,nav=w.document.querySelector('#filters')!,buttons=[...nav.querySelectorAll<HTMLButtonElement>('button')];
+  assert.equal(nav.querySelector('.theme-label')!.textContent,'知识星群');assert.equal(buttons.length,3);assert(buttons.every(b=>b.querySelector('svg[aria-hidden=true]')));assert.deepEqual(buttons.map(b=>b.querySelector('small')!.textContent),['4','2','2']);
+  w.eval('manualCamera=true;cameraTween=null;scale=.65;ox=72;oy=-31');const camera=w.eval('[scale,ox,oy].join()');
+  buttons[1].querySelector('svg path')!.dispatchEvent(new w.Event('pointerover',{bubbles:true}));
+  assert.equal(w.eval('previewTopic'),0);assert.equal(w.eval('filter'),-1);assert.equal(w.eval('[scale,ox,oy].join()'),camera);assert.equal(buttons[0].getAttribute('aria-pressed'),'true');assert.equal(buttons[1].dataset.previewed,'true');assert(w.eval('nodes.filter(inHighlightedTopic).every(n=>n.g===0)'));
+  nav.dispatchEvent(new w.Event('pointerleave'));assert.equal(w.eval('previewTopic'),null);assert.equal(w.eval('nodes.filter(inHighlightedTopic).length'),4);
+  buttons[1].click();assert.equal(w.eval('filter'),0);assert.equal(w.eval('previewTopic'),null);assert.equal(buttons[1].getAttribute('aria-pressed'),'true');assert(w.eval('cameraTween!==null'));
+  w.eval('cameraTween=null');buttons[2].dispatchEvent(new w.Event('pointerover',{bubbles:true}));assert.equal(w.eval('previewTopic'),1);assert.equal(w.eval('filter'),0);nav.dispatchEvent(new w.Event('pointerleave'));assert(w.eval('nodes.filter(inHighlightedTopic).every(n=>n.g===0)'));
+  const touch=new w.Event('pointerover',{bubbles:true});Object.defineProperty(touch,'pointerType',{value:'touch'});buttons[2].dispatchEvent(touch);assert.equal(w.eval('previewTopic'),null);
+  buttons[2].focus();assert.equal(w.eval('previewTopic'),1);w.document.getElementById('view-toggle')!.focus();assert.equal(w.eval('previewTopic'),null);
+  buttons[0].click();assert.equal(w.eval('filter'),-1);assert.equal(w.eval('nodes.filter(inTopic).length'),4);
+  w.dispatchEvent(new w.MessageEvent('message',{source:w as unknown as Window,data:{type:'cheesecool:state',mode:'light',paused:true,query:'',focus:'',saved:null}}));assert.equal(buttons[1].style.getPropertyValue('--topic-color'),w.eval('groups[0].color'));
+  assert.deepEqual(errors,[]);
+ }finally{dom.window.close();}
+});
