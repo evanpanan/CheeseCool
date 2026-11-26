@@ -184,10 +184,10 @@ test('topic constellation previews are reversible and never change the selected 
   Object.defineProperty(win.HTMLCanvasElement.prototype,'clientWidth',{get:()=>1440});Object.defineProperty(win.HTMLCanvasElement.prototype,'clientHeight',{get:()=>900});
  }});
  try{
-  const w=dom.window,nav=w.document.querySelector('#filters')!,buttons=[...nav.querySelectorAll<HTMLButtonElement>('button')];
-  assert.equal(nav.querySelector('.theme-label')!.textContent,'知识星群');assert.equal(buttons.length,3);assert(buttons.every(b=>b.querySelector('svg[aria-hidden=true]')));assert.deepEqual(buttons.map(b=>b.querySelector('small')!.textContent),['4','2','2']);
+  const w=dom.window,nav=w.document.querySelector('#filters')!,buttons=[...nav.querySelectorAll<HTMLButtonElement>('button[data-g]')];
+  assert.equal(nav.querySelector('.theme-label')!.textContent,'芝士星群');assert.equal(buttons.length,3);assert(buttons.every(b=>b.querySelector('svg[aria-hidden=true]')));assert.deepEqual(buttons.map(b=>b.querySelector('small')!.textContent),['4','2','2']);
   w.eval('manualCamera=true;cameraTween=null;scale=.65;ox=72;oy=-31');const camera=w.eval('[scale,ox,oy].join()');
-  buttons[1].querySelector('svg path')!.dispatchEvent(new w.Event('pointerover',{bubbles:true}));
+  buttons[1].querySelector('svg > *')!.dispatchEvent(new w.Event('pointerover',{bubbles:true}));
   assert.equal(w.eval('previewTopic'),0);assert.equal(w.eval('filter'),-1);assert.equal(w.eval('[scale,ox,oy].join()'),camera);assert.equal(buttons[0].getAttribute('aria-pressed'),'true');assert.equal(buttons[1].dataset.previewed,'true');assert(w.eval('nodes.filter(inHighlightedTopic).every(n=>n.g===0)'));
   nav.dispatchEvent(new w.Event('pointerleave'));assert.equal(w.eval('previewTopic'),null);assert.equal(w.eval('nodes.filter(inHighlightedTopic).length'),4);
   buttons[1].click();assert.equal(w.eval('filter'),0);assert.equal(w.eval('previewTopic'),null);assert.equal(buttons[1].getAttribute('aria-pressed'),'true');assert(w.eval('cameraTween!==null'));
@@ -196,6 +196,15 @@ test('topic constellation previews are reversible and never change the selected 
   buttons[2].focus();assert.equal(w.eval('previewTopic'),1);w.document.getElementById('view-toggle')!.focus();assert.equal(w.eval('previewTopic'),null);
   buttons[0].click();assert.equal(w.eval('filter'),-1);assert.equal(w.eval('nodes.filter(inTopic).length'),4);
   w.dispatchEvent(new w.MessageEvent('message',{source:w as unknown as Window,data:{type:'cheesecool:state',mode:'light',paused:true,query:'',focus:'',saved:null}}));assert.equal(buttons[1].style.getPropertyValue('--topic-color'),w.eval('groups[0].color'));
+  const toggle=w.document.querySelector<HTMLButtonElement>('#topics-toggle')!,list=w.document.querySelector<HTMLElement>('#topic-list')!;
+  buttons[1].click();w.eval('cameraTween=null');const beforeCollapse=w.eval('[filter,scale,ox,oy,paused].join()');
+  toggle.click();assert(list.hidden);assert.equal(toggle.getAttribute('aria-expanded'),'false');assert.equal(toggle.querySelector('.topic-current')!.textContent,w.eval('groups[filter].name'));assert.equal(w.eval('previewTopic'),null);assert.equal(w.eval('[filter,scale,ox,oy,paused].join()'),beforeCollapse);
+  w.eval('renderFilters()');assert(w.document.querySelector<HTMLElement>('#topic-list')!.hidden,'graph updates preserve the disclosure state');
+  w.document.querySelector<HTMLButtonElement>('#topics-toggle')!.click();assert(!w.document.querySelector<HTMLElement>('#topic-list')!.hidden);assert.equal(w.eval('[filter,scale,ox,oy,paused].join()'),beforeCollapse);
+  const names=['全部芝士','交互动画','社交媒体','公司披露','股市','黄金','界面组件','前端开发','视频平台','Pablo Stanley','未分类'];
+  const icons=names.map(name=>w.eval('topicGlyph('+JSON.stringify(name)+')'));
+  assert.equal(new Set(icons).size,names.length,'each common topic has a distinct semantic icon');
+  assert.equal(w.eval("topicGlyph('自定义主题')"),w.eval("topicGlyph('自定义主题')"),'fallback icons are stable');
   assert.deepEqual(errors,[]);
  }finally{dom.window.close();}
 });
