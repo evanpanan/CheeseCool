@@ -31,7 +31,7 @@ export async function runKnowledgeJobs(ownerId?:string){
    const limited=code==='source_unavailable',cancelled=code==='not_found';
    const retry=(!known||error.retryable)&&job.attempts<job.max_attempts;
    await patch({state:cancelled?'cancelled':limited?'limited':retry?'queued':'failed',error_code:code,
-    error_message:known?error.message:'后台处理失败，已保留收藏和已完成的步骤',lease_until:null,
+    error_message:known?(code==='source_fetch_failed'&&!retry?'来源连接多次失败，请稍后重新读取':error.message):'后台处理失败，已保留收藏和已完成的步骤',lease_until:null,
     available_at:new Date(Date.now()+Math.min(3600000,30000*2**(job.attempts-1))).toISOString()});
    if(limited)await db.from('bookmarks').update({status:'limited'}).eq('id',job.bookmark_id).eq('user_id',job.user_id);
    await recordEvent(limited?'limited':retry?'queued':'failed',code);

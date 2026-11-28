@@ -27,9 +27,14 @@ export async function processBookmark(db:Client,id:string,onStage:(stage:string)
  if(!source.content||!source.source_hash){
   const {extract}=await import('./extract');
   const result=await extract(webUrl(source.original_url));
-  if(!result.data)throw new ProcessingError('source_unavailable','链接已保存，但网站未提供可读取正文；可稍后重试或补充笔记',false);
+  if(!result.data){
+   const failure=result.failure;
+   const {error:failureError}=await db.from('bookmarks').update({attributes:{...source.attributes,capture_failure:failure?.code||'source_empty',capture_attempted_at:new Date().toISOString()}}).eq('id',id).eq('user_id',row.user_id).is('deleted_at',null);
+   if(failureError)throw new ProcessingError('extract_write','读取结果暂未保存，请稍后重试');
+   throw new ProcessingError(failure?.retryable?'source_fetch_failed':'source_unavailable',failure?.retryable?'来源连接暂时失败，系统会自动重试':failure?.code==='source_restricted'?'来源返回登录或访问验证页面；请在浏览器打开原文后采集可阅读的正文':failure?.code==='source_missing'?'原文已删除或地址失效，收藏链接已保留':'网站未返回可读取正文，链接已保留',Boolean(failure?.retryable));
+  }
   const key=canonical(webUrl(result.final_url));
-  const {data:updated,error:updateError}=await db.from('bookmarks').update({...result.data,...(source.title_edited_at?{title:source.title}:{}),final_url:result.final_url,platform:result.platform,canonical_url:key,status:'extracted',attributes:{...source.attributes,capture_level:result.completeness,capture_truncated:result.source?.truncated||false}})
+  const {data:updated,error:updateError}=await db.from('bookmarks').update({...result.data,...(source.title_edited_at?{title:source.title}:{}),final_url:result.final_url,platform:result.platform,canonical_url:key,status:'extracted',attributes:{...source.attributes,capture_level:result.completeness,capture_truncated:result.source?.truncated||false,capture_failure:null}})
    .eq('id',id).eq('user_id',row.user_id).is('deleted_at',null).select('*').single();
   if(updateError)throw new ProcessingError('extract_write','网页已读取，保存内容失败');
   source=updated;

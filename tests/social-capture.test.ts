@@ -33,3 +33,40 @@ test('the full extractor prefers a concrete description, falls back to public vi
  assert(result.data);assert.equal(result.completeness,rich?'video_description_partial':'video_metadata_only');assert.equal(result.data.title,rich?'更完整标题':'具体视频');assert(!result.data.content.includes('Enjoy the videos'));assert(result.source?.raw.includes(rich?'videoDetails':'author_name'));
  }
 });
+
+test('video parsing reads bracket assignments and richer description renderers with a video identity guard',()=>{
+ const details={videoId:video,title:'真实视频',shortDescription:'真实简介'};
+ assert.equal(extractHtml('<script>window["ytInitialPlayerResponse"] = '+JSON.stringify({videoDetails:details})+'</script>',url).summary,'真实简介');
+ const initial={currentVideoEndpoint:{watchEndpoint:{videoId:video}},contents:{twoColumnWatchNextResults:{results:{results:{contents:[{videoPrimaryInfoRenderer:{title:{runs:[{text:'视频主题'}]}}},{videoSecondaryInfoRenderer:{attributedDescription:{content:'长简介与本视频的具体论点'},owner:{videoOwnerRenderer:{title:{runs:[{text:'创作者'}]}}}}},{videoRenderer:{title:'推荐视频，不应收录'}}]}}}}};
+ const html='<script>var ytInitialData='+JSON.stringify(initial)+'</script>';
+ const parsed=extractHtml(html,url);assert.equal(parsed.title,'视频主题');assert(parsed.content.includes('具体论点'));assert(!parsed.content.includes('推荐视频'));
+ initial.currentVideoEndpoint.watchEndpoint.videoId='wrong';const mismatch=page(JSON.stringify(initial),'ytInitialData');try{assert.equal(socialPage(mismatch.window.document,url),null);}finally{mismatch.window.close();}
+});
+
+test('bound VideoObject and encoded Douyin state recover descriptions without mixing other videos',()=>{
+ const ld={'@type':'VideoObject',name:'视频标题',description:'结构化视频的真实描述',embedUrl:'https://www.youtube.com/embed/'+video};
+ const html='<script type="application/ld+json">'+JSON.stringify(ld)+'</script>';
+ assert.equal(extractHtml(html,url).summary,ld.description);
+ ld.embedUrl='https://www.youtube.com/embed/aaaaaaaaaaa';assert.equal(extractHtml('<script type="application/ld+json">'+JSON.stringify(ld)+'</script>',url).content,'');
+ const id='7123456789012345678',state={data:{aweme_detail:{aweme_id:id,desc:'这条抖音作品的具体内容',author:{nickname:'作者'}},recommendations:[{aweme_id:'other',desc:'无关推荐'}]}};
+ const parsed=extractHtml('<script id="RENDER_DATA">'+encodeURIComponent(JSON.stringify(state))+'</script>',new URL('https://www.douyin.com/video/'+id));
+ assert.equal(parsed.summary,'这条抖音作品的具体内容');assert(!parsed.content.includes('无关推荐'));
+});
+
+test('short video links try the canonical public page before settling for metadata',async()=>{
+ const {PublicReadError}=await import('../lib/public-http');const calls:string[]=[];
+ const result=await extract(new URL('https://youtu.be/'+video),undefined,async input=>{
+  calls.push(input.href);if(input.hostname==='youtu.be')throw new PublicReadError('source_temporary','timeout',true);
+  return {url:input,text:input.pathname==='/oembed'?JSON.stringify({type:'video',title:'视频标题',author_name:'作者'}):'<script>window["ytInitialPlayerResponse"]='+JSON.stringify({videoDetails:{videoId:video,title:'视频标题',shortDescription:'从规范链接补取的真实简介'}})+'</script>',notModified:false,etag:undefined,lastModified:undefined};
+ });
+ assert.equal(result.completeness,'video_description_partial');assert(result.data?.content.includes('规范链接'));assert(calls.some(x=>x==='https://www.youtube.com/watch?v='+video));
+});
+
+test('network outages are retryable while login shells and missing pages remain explicit source failures',async()=>{
+ const {PublicReadError}=await import('../lib/public-http');
+ const unavailable=await extract(new URL('https://example.org/article'),undefined,async()=>{throw new PublicReadError('source_temporary','upstream 503',true,503);});
+ assert.equal(unavailable.failure?.retryable,true);assert.equal(unavailable.failure?.code,'source_temporary');assert.equal(unavailable.data,null);
+ const login=await extract(new URL('https://www.xiaohongshu.com/explore/64a123456789abcdef012345'),undefined,async input=>({url:input,text:'<title>Log in - rednote - share, connect, love</title><p>Join rednote and connect with people from around the world</p>',notModified:false,etag:undefined,lastModified:undefined}));
+ assert.equal(login.failure?.code,'source_restricted');assert.equal(login.failure?.retryable,false);assert.equal(login.data,null);
+ const missing=await extract(new URL('https://example.org/deleted'),undefined,async()=>{throw new PublicReadError('source_missing','not found',false,404);});assert.equal(missing.failure?.code,'source_missing');assert.equal(missing.failure?.retryable,false);
+});

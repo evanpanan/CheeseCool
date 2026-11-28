@@ -2,6 +2,7 @@ import { lookup } from 'node:dns/promises';
 import http from 'node:http';
 import https from 'node:https';
 import ipaddr from 'ipaddr.js';
+import {gunzip,inflate,brotliDecompress} from 'node:zlib';
 import { webUrl } from './urls';
 
 export function isPublicAddress(address: string) {
@@ -9,6 +10,24 @@ export function isPublicAddress(address: string) {
   const ip = ipaddr.process(address);
   return ip.range() === 'unicast' && (ip.kind() === 'ipv4' ||
     (ip.toByteArray()[0] & 0xe0) === 0x20);
+}
+
+export class PublicReadError extends Error {
+ constructor(public code:string,message:string,public retryable:boolean,public status?:number){super(message);}
+}
+
+/** Decode bounded public responses even when a server ignores Accept-Encoding: identity. */
+export async function decodePublicBody(bytes:Buffer,encoding:string|undefined,charset='utf-8'){
+ const name=(encoding||'identity').trim().toLowerCase();
+ let decoded=bytes;
+ if(name!=='identity'){
+  const decompress:((input:Buffer,options:{maxOutputLength:number},callback:(error:Error|null,data:Buffer)=>void)=>void)|null=name==='gzip'||name==='x-gzip'?gunzip:name==='deflate'?inflate:name==='br'?brotliDecompress:null;
+  if(!decompress)throw new PublicReadError('source_format','来源压缩格式暂不支持',false);
+  try{decoded=await new Promise<Buffer>((resolve,reject)=>decompress(bytes,{maxOutputLength:2000000},(error,data)=>error?reject(error):resolve(data)));}
+  catch{throw new PublicReadError('source_format','来源压缩内容无法读取或超过容量',false);}
+ }
+ if(decoded.length>2000000)throw new PublicReadError('source_format','来源页面过大。',false);
+ try{return new TextDecoder(charset).decode(decoded);}catch{throw new PublicReadError('source_format','来源字符编码无法读取。',false);}
 }
 
 export async function readPublic(input: URL, accepts = 'text/html,application/xhtml+xml', validators?:{etag?:string|null;lastModified?:string|null}) {
@@ -42,10 +61,9 @@ export async function readPublic(input: URL, accepts = 'text/html,application/xh
         }
         const contentType = res.headers['content-type'] ?? '';
         if (code < 200 || code >= 300 ||
-            !/^(text\/html|application\/(xhtml\+xml|json|[^;]+\+json))(;|$)/i.test(contentType) ||
-            (res.headers['content-encoding'] && res.headers['content-encoding'] !== 'identity')) {
+            !/^(text\/html|application\/(xhtml\+xml|json|[^;]+\+json))(;|$)/i.test(contentType)) {
           res.destroy();
-          return reject(new Error('来源未返回可读取的公开内容。'));
+          return reject(new PublicReadError(code===401||code===403?'source_restricted':code===404||code===410?'source_missing':code>=500||code===429?'source_temporary':'source_format','来源未返回可读取的公开内容。',code>=500||code===429,code));
         }
         const chunks: Buffer[] = [];
         let size = 0;
@@ -57,8 +75,7 @@ export async function readPublic(input: URL, accepts = 'text/html,application/xh
         res.on('error', reject);
         res.on('end', () => {
           const charset = contentType.match(/charset=["']?([\w-]+)/i)?.[1] ?? 'utf-8';
-          try { resolve({ text: new TextDecoder(charset).decode(Buffer.concat(chunks)),etag,lastModified }); }
-          catch { reject(new Error('来源字符编码无法读取。')); }
+          void decodePublicBody(Buffer.concat(chunks),res.headers['content-encoding'],charset).then(text=>resolve({text,etag,lastModified}),reject);
         });
       });
       request.on('error', reject);
