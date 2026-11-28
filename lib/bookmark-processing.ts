@@ -54,13 +54,14 @@ export async function processBookmark(db:Client,id:string,onStage:(stage:string)
  }
  await onStage('organize');
  const {chat,embedding:embeddingKey}=await siteAiConfig();
- const metadataOnly=source.attributes?.capture_level==='video_metadata_only';
+ const metadataOnly=/^(?:video|homepage)_metadata_only$/.test(source.attributes?.capture_level||'');
  if(!source.ai_summary&&!metadataOnly&&!chat)return {waiting:true,reason:'model_unconfigured'};
  if(!source.ai_summary&&!metadataOnly&&chat){
   const archived=await db.from('bookmark_sources').select('truncated,metadata').eq('bookmark_id',id).eq('source_hash',source.source_hash).maybeSingle();
   if(archived.error)throw new ProcessingError('source_read','来源采集范围暂不可读');
   const captureLevel=archived.data?.metadata?.capture_level||source.attributes?.capture_level;
   const partial=captureIsPartial(captureLevel,archived.data?.truncated||source.attributes?.capture_truncated),scope=partial?'partial':'complete';
+  const pageKind=String(captureLevel||'').startsWith('homepage')?'homepage':'content';
   let ai;
   const pieces=chunkContent(source.content,4500,250);
   if(pieces.length>1){
@@ -69,7 +70,7 @@ export async function processBookmark(db:Client,id:string,onStage:(stage:string)
    const done=new Set((known||[]).map(p=>p.ordinal));const missing=pieces.map((text,ordinal)=>({text,ordinal})).filter(p=>!done.has(p.ordinal)).slice(0,3);
    if(missing.length){
     await Promise.all(missing.map(async piece=>{
-     let result;try{result=await understand(source.title+' · 第 '+(piece.ordinal+1)+' 段',piece.text,chat,4500,scope);}catch{throw new ProcessingError('model_unavailable','长文分段整理暂未完成，已保留完成的分段');}
+     let result;try{result=await understand(source.title+' · 第 '+(piece.ordinal+1)+' 段',piece.text,chat,4500,scope,pageKind);}catch{throw new ProcessingError('model_unavailable','长文分段整理暂未完成，已保留完成的分段');}
      const {error}=await db.from('bookmark_piece_summaries').upsert({user_id:row.user_id,bookmark_id:id,source_hash:source.source_hash,ordinal:piece.ordinal,provider:chat.provider,model:chat.model,prompt_version:'piece-v2',...result},{onConflict:'bookmark_id,source_hash,ordinal,provider,model,prompt_version',ignoreDuplicates:true});
      if(error)throw new ProcessingError('piece_write','分段整理记录保存失败');
     }));
@@ -77,12 +78,12 @@ export async function processBookmark(db:Client,id:string,onStage:(stage:string)
    }
    if(known?.length!==pieces.length)throw new ProcessingError('piece_incomplete','长文分段尚未全部整理');
    const combined=known.map(p=>'第 '+(p.ordinal+1)+' 段：'+p.summary.slice(0,180)).join('\n');
-   try{ai=await understand(source.title,combined,chat,26000,scope);}catch{throw new ProcessingError('model_unavailable','分段已完成，最终汇总暂未完成');}
+   try{ai=await understand(source.title,combined,chat,26000,scope,pageKind);}catch{throw new ProcessingError('model_unavailable','分段已完成，最终汇总暂未完成');}
    ai.evidence=validEvidence(source.content,known.flatMap(p=>p.evidence||[]));
   }else{
-   try{ai=await understand(source.title,source.content,chat,4500,scope);}catch{throw new ProcessingError('model_unavailable','模型服务未完成整理，请检查模型名称、额度或稍后重试');}
+   try{ai=await understand(source.title,source.content,chat,4500,scope,pageKind);}catch{throw new ProcessingError('model_unavailable','模型服务未完成整理，请检查模型名称、额度或稍后重试');}
   }
-  const {error:auditError}=await db.from('bookmark_derivations').insert({user_id:row.user_id,bookmark_id:id,source_hash:source.source_hash,provider:chat.provider,model:chat.model,prompt_version:'knowledge-v4',summary:ai.summary,tags:ai.tags,evidence:ai.evidence,coverage:{characters:Array.from(source.content).length,parts:pieces.length,complete:!partial,processed_complete:true,scope:'collected_content',capture_level:captureLevel||null}});
+  const {error:auditError}=await db.from('bookmark_derivations').insert({user_id:row.user_id,bookmark_id:id,source_hash:source.source_hash,provider:chat.provider,model:chat.model,prompt_version:'knowledge-v5',summary:ai.summary,tags:ai.tags,evidence:ai.evidence,coverage:{characters:Array.from(source.content).length,parts:pieces.length,complete:!partial,processed_complete:true,scope:'collected_content',capture_level:captureLevel||null}});
   if(auditError)throw new ProcessingError('derivation_write','模型输出存档失败');
   const {data:saved,error:summaryError}=await db.from('bookmarks').update({ai_summary:ai.summary,...(!source.tags_edited_at?{tags:ai.tags}:{})}).eq('id',id).eq('source_hash',source.source_hash).is('ai_summary',null).is('deleted_at',null).select('id').maybeSingle();
   if(summaryError)throw new ProcessingError('summary_write','摘要保存失败');

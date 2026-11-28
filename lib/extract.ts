@@ -4,6 +4,7 @@ import { JSDOM } from 'jsdom';
 import { identify, webUrl } from './urls';
 import { readPublic,PublicReadError } from './public-http';
 import {githubSource} from './github-source';
+import {homepageOverview} from './homepage';
 import {structuredArticle,semanticArticle} from './structured-article';
 import {socialPage,youtubeSource,youtubeId,genericSocialShell} from './social-source';
 
@@ -30,6 +31,8 @@ export function extractHtml(html: string, url: URL) {
     const description = meta('og:description') || meta('twitter:description') || meta('description');
     const restricted=/^(?:just a moment|access denied|attention required|security verification|verify you are human|sign in|log in|登录|安全验证|访问受限)/i.test(clean(title,240))||Boolean(doc.querySelector('input[type="password"]')&&clean(doc.body?.textContent,2000).length<500);
     const blocked=restricted||genericSocialShell(clean(title,240),clean(description,1000),url);
+    const homepage=blocked?null:homepageOverview(doc,url);
+    if(homepage)return {title:clean(title,240),summary:clean(homepage.summary,420),content:homepage.content,cover_url:image?imageUrl(image,url):null,restriction:null,capture:homepage.content.length>=80?'homepage':'homepage_metadata_only',contentTruncated:false};
     const structured=blocked?null:structuredArticle(doc,url),semantic=blocked?'':semanticArticle(doc);
     const article = new Readability(doc, { maxElemsToParse: 25_000 }).parse();
     const chosen=structured&&structured.body.length>(article?.textContent?.length||0)*1.15?structured.body:article?.textContent||semantic;

@@ -25,3 +25,8 @@ export function displayTitle(title:string,recordType='web',platform='web',tags:s
  if(platform==='x'&&tags[0]&&fitsNodeTitle(tags[0]+' · 推文'))return tags[0]+' · 推文';
  return boundedTitle(name);
 }
+
+export function homepageTitle(title:string){
+ const name=title.replace(/^(?:home(?:page)?|首页|主页)\s*[-—|:：]?\s+/iu,'').replace(/\s*[-—|:：]\s*(?:home(?:page)?|首页|主页)$/iu,'').trim();
+ const short=displayTitle(name);return Array.from(short).length<3?short+' 官网':short;
+}
