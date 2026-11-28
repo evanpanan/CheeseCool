@@ -1,6 +1,6 @@
 import type { Platform } from './urls';
 import { layoutNetwork } from './network-layout';
-import { displayTitle } from './display-title';
+import { displayTitle,fitsNodeTitle } from './display-title';
 
 export type NetworkBookmark = {
   id: string;
@@ -99,7 +99,7 @@ export function buildNetwork(bookmarks: NetworkBookmark[], edges: NetworkEdge[],
     const nodes = items.map(bookmark => {
       const connections = neighbors.get(bookmark.id) ?? [];
       return {
-        ...bookmark, display_title: (()=>{const label=bookmark.attributes?.node_title as {text?:unknown;source_hash?:string;original_title?:string}|undefined;return label&&typeof label.text==='string'&&Array.from(label.text).length<=32&&label.source_hash===bookmark.source_hash&&label.original_title===bookmark.title?label.text:displayTitle(bookmark.title,bookmark.record_type,bookmark.platform,bookmark.tags);})(), group: key, groupIndex, color, connections, degree: connections.length,
+        ...bookmark, display_title: (()=>{const label=bookmark.attributes?.node_title as {text?:unknown;source_hash?:string;original_title?:string}|undefined;return label&&typeof label.text==='string'&&Array.from(label.text).length<=32&&label.source_hash===bookmark.source_hash&&label.original_title===bookmark.title?(fitsNodeTitle(label.text)?label.text:displayTitle(label.text,bookmark.record_type)):displayTitle(bookmark.title,bookmark.record_type,bookmark.platform,bookmark.tags);})(), group: key, groupIndex, color, connections, degree: connections.length,
         x: 0, y: 0, radius: 7 + Math.min(10, Math.sqrt(connections.length) * 2.4),
       };
     }).sort((a, b) => b.degree - a.degree);

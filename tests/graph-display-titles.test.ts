@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {JSDOM,VirtualConsole} from 'jsdom';
-import {displayTitle} from '../lib/display-title';
+import {displayTitle,fitsNodeTitle} from '../lib/display-title';
 import {buildNetwork} from '../lib/knowledge-network';
 import {orbitDocument} from '../lib/orbit-document';
 
@@ -15,6 +15,15 @@ test('display aliases preserve source titles and meaningful hyphens, with no sho
  const graph=buildNetwork(titles.map((title,i)=>({id:String(i),title,original_url:'https://example.org/'+i,final_url:null,platform:'web',summary:'',ai_summary:null,tags:['设计'],status:'indexed'})),[]);
  assert.equal(graph.nodes.find(n=>n.id==='0')?.title,titles[0]);
  assert.equal(graph.nodes.find(n=>n.id==='0')?.display_title,'Bencho');
+});
+
+test('graph aliases use complete subjects and bound both generated and pending titles',()=>{
+ const title='万字解读《马斯克原理》：从第一性原理到火星，马斯克做事的整套方法';
+ assert.equal(displayTitle(title),'马斯克原理');
+ assert.equal(displayTitle('Artideck:代理工作可视化与知识库'),'Artideck');
+ for(const value of [title,'非常长的中文内容标题需要概括清楚主题避免遮挡其他节点','A Very Long English Article Heading Without Site Separators'])assert(fitsNodeTitle(displayTitle(value)));
+ const graph=buildNetwork([{id:'video',title,original_url:'https://youtube.com/watch?v=test',final_url:null,platform:'web',summary:'',ai_summary:null,tags:[],status:'indexed',source_hash:'v1',attributes:{node_title:{text:'这是旧版本生成的一段很长很长的标题需要被约束',source_hash:'v1',original_title:title}}}],[]);
+ assert(fitsNodeTitle(graph.nodes[0].display_title));assert.equal(graph.nodes[0].title,title);
 });
 
 test('actual canvas labels fit mobile edges, stay anchored below nodes and keep full-title search and details',()=>{
@@ -36,7 +45,7 @@ test('actual canvas labels fit mobile edges, stay anchored below nodes and keep 
   try{
    assert.deepEqual(errors,[]);
    const w=dom.window;
-   for(const node of graph.nodes){const wrapped=w.eval('graphLabel(byId.get('+JSON.stringify(node.id)+'),142)') as {lines:string[];text:string};assert.equal(wrapped.lines.join('').replace(/\s/gu,''),node.display_title.replace(/\s/gu,''),'wrapping must retain every title character');assert(!wrapped.text.endsWith('…'));}
+   for(const node of graph.nodes){const wrapped=w.eval('graphLabel(byId.get('+JSON.stringify(node.id)+'),142)') as {lines:string[];text:string};assert.equal(wrapped.lines.join('').replace(/\s/gu,''),node.display_title.replace(/\s/gu,''),'wrapping must retain every title character');assert(fitsNodeTitle(wrapped.text));assert(wrapped.lines.length<=2);}
    w.eval("updateNodeTooltip(byId.get('0'),{x:100,y:100})");assert.equal(w.document.querySelector('#node-tooltip strong')!.textContent,titles[0]);
 
    w.eval('frame(performance.now())');
